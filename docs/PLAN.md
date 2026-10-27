@@ -8,8 +8,9 @@ Languages: **French, Arabic, English**. First appliance: **washing machine**.
 
 ## 1. Summary
 
-Every unit coming off the production line goes to the **test room**, where it
-is **scanned and tested**.
+Every unit coming off the production line (one line) goes to the **test room**,
+where it is **scanned and tested** — no exceptions. The serial number tells the
+app the **model and the color**, so nothing has to be typed.
 
 - **Test OK** → the unit passes through. The pass is recorded.
 - **Test not OK** → the tester records what failed. A **repair ticket** opens
@@ -23,7 +24,8 @@ Everything is recorded: every test, every repair, who did it, when, and on
 which PC. Open any serial number and you see its **full history**. Open any
 repairman or tester and you see **everything they did**.
 
-Products are **not in the ERP**, so models are **added manually** in the app.
+Products are **not in the ERP**, so models and colors are **added manually** in
+the app (once). After that, every scan is recognized automatically.
 
 ---
 
@@ -71,8 +73,9 @@ The busiest screen: it must be **fast** (scan → result in a few seconds).
 
 - **Scan box** always active (barcode scanner).
 - After scan:
-  - **New serial** → unit is created; model is detected from the serial/barcode
-    if possible, otherwise the last-used model stays selected.
+  - **New serial** → unit is created; **model and color are read from the serial**
+    (see §3.4). If the model or color code is unknown, the app asks to add it
+    (supervisor/admin) — that's how new products get added manually.
   - **Known serial** → shows whether it's a first test or a **retest after
     repair**, and what the repairman did.
 - **Checklist** with big ✓ / ✗ buttons (and number fields for measurements).
@@ -108,15 +111,43 @@ Live view, refreshes automatically, readable from a distance. No login needed
 - **Units by hour** chart (tested vs failed).
 - **Top 5 defects** today — so the line can fix the root cause.
 - **Currently in repair** and **waiting for retest** counts; oldest unit in repair.
-- **By model** (if several models run on the line).
-- Language chosen per screen; can rotate between views.
+- **By model and color** running on the line today.
+- One dashboard for the line (one production line). Language chosen on the
+  screen; can rotate between FR / AR / EN.
 
-### 3.4 Supervisor / admin (any PC, by login)
+### 3.4 Reading the serial number (model + color)
+
+The serial number contains the **model code** and the **color code**. An admin sets
+the rule once, for example:
+
+```
+Serial:   WM8F  14  W  26 10 000123
+          │     │   │  │  │  └── running number
+          │     │   │  │  └──── month
+          │     │   │  └─────── year
+          │     │   └────────── color code   (W = White)
+          │     └────────────── variant
+          └──────────────────── model code   (WM8F = 8 kg front-load)
+```
+*(Example only — we'll use your real serial format.)*
+
+- The rule is **configurable** (positions or pattern), so a format change doesn't
+  need a new app version.
+- **Model code → model**, **color code → color**, both from tables you fill in
+  manually (with names in FR / AR / EN).
+- If the serial also holds the **production date**, we read it too.
+- **Unknown model or color code** → the scan is held with a clear message
+  ("Model code WM9X not found — add it?"), so no unit is saved with a wrong model.
+- **Invalid serial** (wrong length / bad scan) → rejected with a beep, so the
+  tester rescans.
+- The same serial **can't be created twice**; scanning it again finds the existing unit.
+
+### 3.5 Supervisor / admin (any PC, by login)
 
 - **Reports** (§8) and **search** by serial, ticket, model, person, defect, date.
 - **Unit page**: full timeline of tests and repairs.
 - **Person page**: what each repairman / tester did, with filters.
-- **Settings**: users, stations, models, categories, defect codes, components,
+- **Settings**: users, stations, models, colors, serial number rule, categories, defect codes, components,
   repair actions, spare parts, test checklist, targets, translations.
 
 ---
@@ -160,7 +191,7 @@ inactivity so the next person doesn't work under someone else's name.
 ```
 Category (Washing Machine)
   └── Model (added manually)
-        └── Unit (one machine, by serial number)
+        └── Unit (one machine, by serial number → model + color)
               ├── Tests (every test: first test, retests)
               │     └── Check results (each checklist item)
               └── Repair tickets (opened when a test fails)
@@ -179,10 +210,16 @@ Category (Washing Machine)
 - Washing machine: load type (front / top), capacity (kg), max spin (rpm), energy class, inverter (yes/no)
 
 **models** — added manually
-- `id`, `category_id`, `brand`, `model_number`, `name`, `serial_prefix` (to detect the model from a scan), `attribute_values`, `active`
+- `id`, `category_id`, `brand`, `model_number`, `name`, `serial_model_code` (the code inside the serial), `attribute_values`, `active`
+
+**colors** — added manually
+- `id`, `serial_color_code` (e.g. W), `name` (FR/AR/EN — e.g. Blanc / أبيض / White), `active`
+
+**serial_rules** — how to read a serial (set by admin)
+- `id`, `category_id`, `pattern` (positions or pattern for model code, color code, date, number), `example`, `active_from`
 
 **units** — created the first time a serial is scanned in the test room
-- `id`, `serial_number` (unique), `model_id`, `production_line` (optional), `production_date` (optional)
+- `id`, `serial_number` (unique), `model_id`, `color_id` (both read from the serial), `production_date` (from serial, if present)
 - `status` (In test / Passed / In repair / Waiting for retest / Scrapped)
 - `first_scanned_at`, `released_at`, `first_pass` (yes/no — passed on first test)
 
@@ -283,9 +320,9 @@ Visual / cosmetic.
 
 ## 8. Reports & KPIs
 
-- **First-pass yield (FPY)** — % of units that pass on the first test, by day / shift / model / line
+- **First-pass yield (FPY)** — % of units that pass on the first test, by day / shift / model / color
 - **Units tested / passed / failed / scrapped** per hour, shift, day, month
-- **Top defects** — overall, by model, by period (Pareto chart)
+- **Top defects** — overall, by model, by color, by period (Pareto chart)
 - **Top replaced components and spare parts**
 - **Retest fail rate** — repairs that failed the retest, by repairman
 - **Repair time** — waiting for repairman, hands-on time, total time in repair
@@ -379,7 +416,8 @@ gamut/
 
 ### Phase 1 — Core flow (3–4 weeks)
 - [ ] Login (employee ID + PIN), auto-lock, station setup per PC
-- [ ] Admin: users, stations, **models (manual entry)**, defect codes, components, actions
+- [ ] Admin: users, stations, **models and colors (manual entry)**, defect codes, components, actions
+- [ ] **Serial number rule** → model + color detected on every scan
 - [ ] **Quality interface**: scan → pass / fail with defect (simple checklist)
 - [ ] Failed test → **repair ticket opens automatically**
 - [ ] **Repairman interface**: queue, claim, diagnosis, repair actions, send back to test
@@ -396,13 +434,12 @@ gamut/
 - [ ] Full checklist with measured values (min/max)
 - [ ] Spare parts used
 - [ ] Photos from test room and repair
-- [ ] Model detection from serial prefix
 - [ ] Repeat-repair warning
 
 ### Phase 3 — Reports & roll-out (2 weeks)
 - [ ] All KPI reports (§8), Excel / PDF export in each language
 - [ ] Translation editor for admins
-- [ ] Targets (FPY) per line / model
+- [ ] Targets (FPY) per model
 - [ ] Audit log viewer
 - [ ] Installer + auto-update from the server; roll out to all PCs
 - [ ] Short training guide in FR / AR / EN
@@ -421,27 +458,32 @@ gamut/
 ### Data
 1. **Washing machine models** — brand, model number, load type, capacity, spin rpm
    (Excel sheet is fine; we'll import it).
-2. **Sample serial numbers / barcode labels** — and whether the serial tells us the model.
-3. **People** — employee ID, name, shift, role (tester / repairman / supervisor).
-4. **Your real defect codes** with names in FR / AR / EN.
-5. **Your test checklist** — and min/max for any measured values.
-6. **Component list and spare parts** (part number + name).
-7. **Current paper forms / Excel** used in the test room and repair area today.
-8. **Production lines** — how many, their names, and FPY targets.
+2. **Serial number format** — **10–20 real serials** (different models and colors)
+   and an explanation of each part: where the model code is, where the color code
+   is, and whether the date is inside. A photo of the barcode label helps too.
+3. **List of model codes** (code in the serial → model) and **color codes**
+   (code → color name in FR / AR / EN).
+4. **People** — employee ID, name, shift, role (tester / repairman / supervisor).
+5. **Your real defect codes** with names in FR / AR / EN.
+6. **Your test checklist** — and min/max for any measured values.
+7. **Component list and spare parts** (part number + name).
+8. **Current paper forms / Excel** used in the test room and repair area today.
+9. **FPY target** for the line (e.g. 95% pass on first test) and shift times.
 
 ### Server & network (with IT)
-9. **Server or VM**: 4 CPU cores, 8 GB RAM, 100 GB SSD. **Choose Linux or Windows.**
-10. A **fixed address** for the server (static IP or name like `gamut.factory.local`).
-11. **Firewall**: one port open from the PCs to the server.
-12. **Backup location**: second disk, NAS or network share.
-13. Who has **admin access** to the server.
+10. **Server or VM**: 4 CPU cores, 8 GB RAM, 100 GB SSD. **Choose Linux or Windows.**
+11. A **fixed address** for the server (static IP or name like `gamut.factory.local`).
+12. **Firewall**: one port open from the PCs to the server.
+13. **Backup location**: second disk, NAS or network share.
+14. Who has **admin access** to the server.
 
 ### Hardware
-14. **Test room PC** + **USB barcode scanner** (essential — the test room scans every unit).
-15. **Repair PCs** — how many; a scanner at each is recommended.
-16. **Big screen (TV) + small PC or mini-PC** for each production line dashboard.
-17. Windows 10/11 PCs, 8 GB RAM, 22"+ screens.
-18. Optional: webcam / tablet for photos.
+15. **Test room PC** + **USB barcode scanner** (essential — every unit is scanned).
+    A scanner with a stand (hands-free) is faster for high volume.
+16. **Repair PCs** — how many; a scanner at each is recommended.
+17. **One big screen (TV) + mini-PC** for the production line dashboard.
+18. Windows 10/11 PCs, 8 GB RAM, 22"+ screens.
+19. Optional: webcam / tablet for photos.
 
 ---
 
@@ -455,9 +497,9 @@ gamut/
 | 4 | Three interfaces: **quality, repairman, production line dashboard** (+ supervisor/admin) | ✅ |
 | 5 | Languages **FR / AR / EN**, Arabic right-to-left | ✅ |
 | 6 | Server OS: Linux or Windows | ⏳ Open — works on both (Docker); Linux recommended |
-| 7 | Does **every** unit go through the test room, or only some? | ⏳ Open — plan assumes every unit |
-| 8 | Does the serial/barcode tell us the model? | ⏳ Open |
-| 9 | One production line or several? | ⏳ Open |
+| 7 | Every unit goes through the test room | ✅ |
+| 8 | Serial number contains **model + color** → read automatically | ✅ (need your real format) |
+| 9 | One production line → one line dashboard | ✅ |
 | 10 | Failed retest goes back to the same repairman | ✅ Default (supervisor can reassign) |
 | 11 | Offline mode if server down | Not planned — saving blocked with a warning |
 
@@ -465,7 +507,8 @@ gamut/
 
 ## 15. Definition of done (Phase 1)
 
-- In the test room, a tester scans a unit and passes it in **under 10 seconds**.
+- In the test room, a tester scans a unit and passes it in **under 10 seconds**,
+  with model and color filled in automatically from the serial.
 - A fail creates a repair ticket that shows up **instantly** on the repair PCs.
 - A repairman logs the repair and sends it back; it appears in the test room's retest queue.
 - Searching a serial shows every test, every repair, every person and every
