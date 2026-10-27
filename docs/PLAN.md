@@ -1,262 +1,372 @@
-# Gamut — Unified Game Library Launcher: Plan
+# Gamut Repair — Full Plan
 
-Gamut is a desktop app that pulls every game you own, from every store, into one good-looking library, and launches, installs, and tracks them from one place.
-
----
-
-## 1. Goals
-
-1. **One library.** Every owned game from every store in one list, with duplicates merged (for example, the same game owned on Steam and GOG shows once, with both sources).
-2. **Looks good.** Cover art, hero banners, logos, screenshots, descriptions, genres, ratings, playtime.
-3. **One click to play.** Launch any game, installed through any launcher, from Gamut.
-4. **Install and uninstall** by handing off to the store's own client. Gamut does not download game files itself in v1.
-5. **Works offline.** The library is cached locally, so it opens instantly without internet.
-6. **Expandable.** Each store is a separate plugin ("connector"), so new stores can be added without touching the core.
-
-### Not in v1
-- Downloading or patching games directly (Gamut leaves that to each store's client; Epic and GOG could be added later through Legendary/Heroic-style code).
-- Buying games, store pages, friends, or chat.
-- Mobile app (a phone "remote library viewer" could come later).
+Desktop repair-tracking system for a home-appliance factory.
+Starting appliance: **washing machine**.
 
 ---
 
-## 2. Existing projects to learn from (or build on)
+## 1. What the app must do (in one paragraph)
 
-| Project | What it is | What to take from it |
-|---|---|---|
-| **Playnite** (C#, open source, Windows) | The closest existing app to this idea. Library plugins for 20+ stores. | Its store plugin code shows how each store's library is read. **Option:** build Gamut as a Playnite theme + plugins instead of a new app. |
-| **GOG Galaxy 2.0** | Closed app with open-source Python integrations | `galaxy-integrations-python-api` and community plugins document each store's private API. |
-| **Heroic Games Launcher** (Electron, open source) | Epic / GOG / Amazon on Windows, macOS, Linux | Uses **Legendary** (Epic), **gogdl** (GOG), **Nile** (Amazon). |
-| **Lutris** (Linux) | Runners for Wine, emulators, stores | Linux + emulator support. |
-| **LaunchBox** | Emulation-focused front end | "Big Picture" style UI ideas. |
-
-**Decision to make first:** build a new app (full control over looks and features, more work) or extend Playnite (most store integrations already exist, but Windows-only and limited to its UI). This plan assumes a **new app**, using Playnite and Heroic code as a reference for how each store works.
+When a washing machine arrives at the repair area, someone **registers it**
+(scans or types its serial number; if the model is new, adds the model by hand).
+A **repair ticket** is opened with the reported problem. A **technician** picks it
+up, diagnoses it, and logs every **repair action** (what component, what was done,
+which parts were used, how long it took). The unit is **tested**. If it passes,
+the ticket is closed; if it fails, it goes back to repair. Every step is recorded,
+so you can open any unit and see its **complete repair history**, or open any
+technician and see **everything they repaired**.
 
 ---
 
-## 3. Store integration matrix
+## 2. Core questions the app answers
 
-Every connector does up to four jobs:
-
-- **A. Owned games**: the full list, including games not installed (usually needs login).
-- **B. Installed games**: found by reading local files and the registry (no login needed).
-- **C. Launch**: usually through the store's URL scheme.
-- **D. Install / uninstall**: usually through a URL scheme that opens the store client.
-
-Paths are Windows defaults unless noted. "Unofficial" means a private API used by the store's own client: it can change without warning, so wrap it carefully.
-
-### Tier 1 (build first)
-
-| Store | A. Owned games | B. Installed games | C. Launch | D. Install |
-|---|---|---|---|---|
-| **Steam** | **Official** Steam Web API: `IPlayerService/GetOwnedGames` (Web API key + SteamID64; profile game details must be public, or sign in with Steam OpenID) | `steamapps/libraryfolders.vdf` → each folder's `appmanifest_<appid>.acf` | `steam://rungameid/<appid>` | `steam://install/<appid>`, `steam://uninstall/<appid>` |
-| **Epic Games** | Unofficial: Epic OAuth through a login webview, then the library service (as Legendary does) | `C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests\*.item` (JSON) | `com.epicgames.launcher://apps/<AppName>?action=launch&silent=true` | Open the launcher at the game page |
-| **GOG** | Unofficial: GOG OAuth (`auth.gog.com`), then `embed.gog.com/user/data/games` and product details | Registry `HKLM\SOFTWARE\WOW6432Node\GOG.com\Games\<id>`; or read GOG Galaxy's `galaxy-2.0.db` (SQLite) | Run the game exe directly (GOG games are DRM-free) or `goggalaxy://openGameView/<id>` | Galaxy URL scheme, or later download installers directly (DRM-free) |
-| **Ubisoft Connect (Uplay)** | Unofficial: Ubisoft "ubiservices" API after login; or parse the client's local `cache/configuration` file | Registry `HKLM\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\<id>` | `uplay://launch/<id>/0` | `uplay://install/<id>` |
-| **EA app** (formerly Origin) | Unofficial EA GraphQL API after login | `C:\ProgramData\EA Desktop\InstallData\` and registry entries | `origin2://game/launch?offerIds=<id>` | Open EA app |
-| **Battle.net** | No reliable owned-games API: show installed games plus a fixed list of known Blizzard titles | `C:\ProgramData\Battle.net\Agent\product.db` (protobuf) | `battlenet://<ProductCode>` or `Battle.net.exe --exec="launch <code>"` | Open Battle.net |
-| **Xbox / Microsoft Store / Game Pass** | Xbox Live title history after Microsoft sign-in (unofficial); Game Pass catalog is public JSON | `Get-AppxPackage` (PowerShell) filtered to games; `.GamingRoot` files on each drive for `XboxGames` folders | `shell:AppsFolder\<AUMID>` | `ms-windows-store://pdp/?productid=<id>` |
-
-### Tier 2
-
-| Store | Notes |
+| Question | Where it's answered |
 |---|---|
-| **Amazon Games / Prime Gaming** | Installed: `%LocalAppData%\Amazon Games\Data\Games\Sql\GameInstallInfo.sqlite`. Owned: unofficial API (see **Nile**). Launch: `amazon-games://play/<id>`. |
-| **itch.io** | **Official** API with a user API key (`/profile/owned-keys`). Installed: itch app's `butler.db` (SQLite). |
-| **Humble Bundle** | Unofficial library API after login. Mostly keys for other stores plus DRM-free downloads. Used to tag games as "owned as key". |
-| **Rockstar Games Launcher** | Registry entries per title; launch with `Launcher.exe -launchTitleInFolder`. No owned-games API. |
-| **Riot Games** | Fixed list (League, Valorant, LoR). Launch `RiotClientServices.exe --launch-product=<id>`. |
-| **Indiegala, Legacy Games, Oculus/Meta, Paradox** | Local install detection only at first. |
-
-### Tier 3 (non-store sources)
-- **Emulators**: RetroArch, Dolphin, PCSX2, RPCS3, Yuzu-forks, etc. Scan ROM folders, launch with per-emulator command templates.
-- **Manual / DRM-free games**: user adds any exe, or Gamut scans a folder.
-- **Linux / Steam Deck**: Steam (native + Proton), Heroic's and Lutris's library files.
+| Who repaired this unit? | Unit page → history timeline |
+| What exactly was done to it? | Ticket → repair actions list |
+| What was the fault? | Ticket → diagnosis (fault code + notes) |
+| Has this unit been repaired before? | Unit page → all tickets (repeat repair warning) |
+| What did technician X work on today / this month? | Technician page |
+| Which faults happen most on model Y? | Reports → top faults by model |
+| How many units are waiting right now, and where? | Dashboard → status board |
+| How long do repairs take? | Reports → average repair time |
 
 ---
 
-## 4. Architecture
+## 3. Users and roles
 
-```
-┌─────────────────────────────── Gamut Desktop App ───────────────────────────────┐
-│                                                                                  │
-│  UI (React + TypeScript)   Library grid · Game page · Filters · Big Picture mode  │
-│            │  commands / events                                                  │
-│  ──────────▼──────────────────────────────────────────────────────────────────── │
-│  Core (Rust, Tauri backend)                                                      │
-│   ├─ Library service      merge, dedupe, collections, search                     │
-│   ├─ Sync scheduler       runs connectors, diffs results                         │
-│   ├─ Launcher service     start game, watch process, record playtime             │
-│   ├─ Metadata service     IGDB / SteamGridDB / store data, image cache           │
-│   ├─ Credential vault     tokens in Windows Credential Manager / macOS Keychain  │
-│   └─ SQLite database      games, sources, metadata, playtime, settings           │
-│            │  Connector interface                                                │
-│  ──────────▼──────────────────────────────────────────────────────────────────── │
-│  Connectors: Steam · Epic · GOG · Ubisoft · EA · Battle.net · Xbox · Amazon · …  │
-└──────────────────────────────────────────────────────────────────────────────────┘
-```
+| Role | Can do |
+|---|---|
+| **Technician** | Open/claim tickets, log diagnosis and repair actions, mark ready for test |
+| **QC / Tester** | Record test results (pass / fail + reason) |
+| **Supervisor** | Everything above + assign tickets, close/scrap units, see all reports |
+| **Admin** | Manage users, appliance categories, models, fault codes, components, parts |
 
-### Tech stack (recommended)
-- **Tauri 2** (Rust backend + web UI): small install (~10 MB vs ~150 MB for Electron), fast, has easy access to the registry and file system, and runs on Windows, macOS, and Linux.
-- **React + TypeScript + Tailwind** for the UI; **Framer Motion** for animation; **TanStack Virtual** so large libraries (5,000+ games) scroll smoothly.
-- **SQLite** (`sqlx` or `rusqlite`) for the local database.
-- **keyring** crate for storing login tokens securely.
-- Alternative: Electron + Node, if you'd rather write everything in TypeScript. That makes it easier to reuse Heroic's code, but the app will be larger.
-
-### Connector interface
-
-```rust
-#[async_trait]
-trait Connector {
-    fn id(&self) -> &'static str;                         // "steam", "epic", …
-    fn capabilities(&self) -> Capabilities;               // owned? installed? install? playtime?
-    async fn login(&self, ui: &LoginUi) -> Result<Session>;   // opens the store's own login webview
-    async fn owned_games(&self, s: &Session) -> Result<Vec<StoreGame>>;
-    async fn installed_games(&self) -> Result<Vec<InstalledGame>>;
-    async fn launch(&self, game: &StoreGame) -> Result<LaunchHandle>;
-    async fn install(&self, game: &StoreGame) -> Result<()>;
-    async fn uninstall(&self, game: &StoreGame) -> Result<()>;
-}
-```
-
-Connectors start as built-in Rust modules. A later phase can add an external plugin format (a small JSON-over-stdin protocol, like GOG Galaxy's) so the community can write connectors in any language.
-
-### Data model (core tables)
-
-- `games`: one row per *real* game (title, slug, IGDB id, release date, description, genres).
-- `game_sources`: one row per store copy (`game_id`, `store`, `store_game_id`, `owned`, `installed`, `install_path`, `size`, `last_played`, `store_playtime`).
-- `artwork`: cover, hero, logo, icon, screenshots (local cached path + source URL).
-- `play_sessions`: start, end, `game_source_id`, for Gamut's own playtime tracking.
-- `collections`, `collection_games`, `tags`: user organisation.
-- `accounts`: connected store accounts (tokens stay in the OS keychain, not in this table).
-
-### Merging duplicates
-1. Match by known IDs first: IGDB maps Steam/GOG/Epic IDs to one game ("external games").
-2. Otherwise compare a normalised title (lowercase, remove ™ ® editions and punctuation) plus release year.
-3. Let the user merge or split games manually. Manual choices always win.
-4. When launching a game owned in several places, use the installed copy; if more than one is installed, use the user's preferred store.
+Phase 1 can start with a simple "pick your name + PIN" login. Real passwords and
+permissions come in a later phase.
 
 ---
 
-## 5. Making it look nice
+## 4. Main concepts (the data model)
 
-### Metadata and artwork sources
-| Source | Gives | Access |
+The design is **generic**: "Washing machine" is just the first *category*.
+Adding fridges later = adding data, not rewriting code.
+
+```
+Category (Washing Machine)
+  └── Model (e.g. WM-8KG-FL-1400)        ← added manually
+        └── Unit (one physical machine, by serial number)
+              └── Repair Ticket (one visit to the repair area)
+                    ├── Diagnosis (fault codes found)
+                    ├── Repair Actions (what was done, by whom)
+                    │     └── Parts Used
+                    ├── Test Results
+                    ├── Attachments (photos)
+                    └── Status History (every status change, who, when)
+```
+
+### 4.1 Tables
+
+**categories** — appliance types
+- `id`, `name` (Washing Machine), `code` (WM), `active`
+
+**category_attributes** — extra fields per category (so each appliance type can have its own specs)
+- `id`, `category_id`, `name` (e.g. "Capacity (kg)"), `type` (text / number / list), `options` (for lists), `required`
+- Washing machine examples: Load type (Front / Top), Capacity (kg), Max spin (rpm), Energy class, Inverter motor (yes/no)
+
+**models** — product models, entered manually
+- `id`, `category_id`, `brand`, `model_number`, `name`, `notes`, `active`, `created_by`, `created_at`
+- `attribute_values` (the values for the category attributes above)
+
+**units** — each individual machine
+- `id`, `model_id`, `serial_number` (unique), `production_date` (optional), `source`
+  (Production line reject / End-of-line test fail / Customer return / Warehouse damage / Other),
+  `current_status`, `created_by`, `created_at`, `notes`
+
+**technicians / users**
+- `id`, `employee_id`, `full_name`, `role`, `skill_level`, `shift`, `pin_hash`, `active`
+
+**repair_tickets** — one per repair visit
+- `id`, `ticket_number` (e.g. R-2026-000123), `unit_id`
+- `reported_problem` (free text), `reported_by`, `received_at`
+- `priority` (Low / Normal / High / Urgent)
+- `assigned_to` (technician), `status`
+- `opened_at`, `closed_at`, `outcome` (Repaired / Scrapped / Returned unrepaired / No fault found)
+
+**fault_codes** — catalog of known faults per category
+- `id`, `category_id`, `code`, `description`, `component_group`
+
+**ticket_faults** — faults found during diagnosis
+- `id`, `ticket_id`, `fault_code_id`, `notes`, `diagnosed_by`, `diagnosed_at`
+
+**components** — catalog of components per category (what gets repaired)
+- `id`, `category_id`, `name` (Drain pump, Door lock, Motor, Main PCB…)
+
+**action_types** — Replaced / Repaired / Adjusted / Cleaned / Re-wired / Software reflash / Tightened / Inspected only
+
+**repair_actions** — the core log: *who did what on what*
+- `id`, `ticket_id`, `technician_id`, `component_id`, `action_type_id`
+- `description` (free text), `started_at`, `ended_at`, `duration_min`
+
+**parts** — spare parts list (optional stock in later phase)
+- `id`, `part_number`, `name`, `category_id`, `component_id`, `unit_cost` (optional)
+
+**parts_used**
+- `id`, `repair_action_id`, `part_id`, `quantity`, `old_part_serial` (optional), `new_part_serial` (optional)
+
+**test_results**
+- `id`, `ticket_id`, `tested_by`, `tested_at`, `result` (Pass / Fail), `checklist` (which checks passed), `notes`
+
+**attachments**
+- `id`, `ticket_id`, `file_path`, `caption`, `uploaded_by`, `uploaded_at`
+
+**status_history** — automatic, never edited
+- `id`, `ticket_id`, `from_status`, `to_status`, `changed_by`, `changed_at`, `comment`
+
+**audit_log** — automatic record of any create/edit/delete (who, what, when, old value, new value)
+
+> Rule: repair records are **never hard-deleted**. Mistakes are corrected with a new
+> entry or a "void" flag, so history stays trustworthy.
+
+---
+
+## 5. Repair workflow (ticket statuses)
+
+```
+ RECEIVED ──► DIAGNOSING ──► WAITING FOR PARTS ──┐
+                  │                              │
+                  └──────────► IN REPAIR ◄───────┘
+                                  │
+                                  ▼
+                               TESTING ──── fail ───► back to IN REPAIR
+                                  │
+                                pass
+                                  ▼
+                               CLOSED (Repaired)
+
+ Any status ──► SCRAPPED  (supervisor only, reason required)
+ DIAGNOSING ──► CLOSED (No fault found)
+```
+
+- Every status change is saved in `status_history` with who/when.
+- A unit can have **only one open ticket at a time**.
+- If a unit comes back after being closed, a **new ticket** is opened and the app
+  shows a **"Repeat repair"** warning with the previous tickets.
+
+---
+
+## 6. Washing machine starter data
+
+You'll refine these with your technicians — they are a starting point so the
+app isn't empty on day one.
+
+### 6.1 Components
+Door lock / interlock · Door seal (gasket) · Door hinge · Drum · Tub ·
+Bearings & seal · Spider arm · Drive belt · Motor (universal / inverter) ·
+Carbon brushes · Tacho / hall sensor · Drain pump · Drain hose · Inlet valve ·
+Inlet hose · Pressure switch / level sensor · Heater element · NTC temperature sensor ·
+Main PCB (control board) · Display / user-interface board · Wiring harness ·
+Shock absorbers · Suspension springs · Counterweight · Detergent drawer ·
+Filter · Power cord / EMI filter · Cabinet / panels · Feet / leveling
+
+### 6.2 Fault codes (example list — replace with your brand's real codes)
+| Code | Description | Component group |
 |---|---|---|
-| **IGDB** (owned by Twitch) | Descriptions, genres, release dates, ratings, store ID mappings | Free, Twitch developer app (client ID + secret) |
-| **SteamGridDB** | Community covers, heroes, logos, icons (great quality, covers non-Steam games too) | Free API key |
-| **Steam store / CDN** | `library_600x900.jpg`, `library_hero.jpg`, `logo.png` per appid | Public |
-| **Store APIs** (GOG, Epic) | Official art returned with the library data | Through connectors |
-| **HowLongToBeat** | Completion time estimates | Unofficial, optional |
+| WM-DL01 | Door does not lock | Door lock |
+| WM-DR01 | Water does not drain | Drain pump / filter / hose |
+| WM-IN01 | Water does not fill | Inlet valve / pressure switch |
+| WM-LK01 | Water leak | Seal / hoses / tub |
+| WM-HT01 | Water not heating | Heater / NTC |
+| WM-MT01 | Drum does not turn | Motor / belt / PCB |
+| WM-SP01 | Does not spin | Motor / tacho / unbalance |
+| WM-NV01 | Excessive noise / vibration | Bearings / shocks / counterweight |
+| WM-EL01 | No power / dead | Power cord / PCB / EMI filter |
+| WM-UI01 | Display / buttons fault | UI board |
+| WM-CS01 | Cosmetic damage | Cabinet / panels |
+| WM-NF00 | No fault found | — |
 
-All images are downloaded once, resized, and cached on disk, so browsing is instant and works offline.
-
-### UI screens
-1. **Library grid**: tall cover art, hover to show a short video or animated hero; badges for store and installed state; fast search; filters for store, installed, genre, tag, playtime, and recently added.
-2. **Game page**: full-width hero image with logo on top, a big Play / Install button, store selector if owned in more places, playtime, achievements (later), description, screenshots.
-3. **Home / shelf view**: "Continue playing", "Recently added", "Never played", "Random pick", user collections, displayed as horizontal rows.
-4. **Big Picture / couch mode**: full screen, controller navigation (gamepad API), large text.
-5. **Settings**: connected accounts, library folders, preferred stores, theme.
-
-### Visual style
-- Dark theme by default, with accent colour taken from each game's cover art.
-- Glass-style panels over a blurred hero background.
-- Smooth transitions between grid and game page (shared-element animation of the cover).
-- Theme system built on CSS variables, so users can make their own themes.
+### 6.3 Post-repair test checklist
+Power on · Door lock / unlock · Water fill · Heating (temp rise) · Wash rotation
+both directions · Drain · Spin at max rpm · Noise/vibration OK · No leaks ·
+Error memory cleared · Visual / cosmetic check.
 
 ---
 
-## 6. Launching and playtime
+## 7. Screens
 
-1. Gamut calls the connector's `launch`, which usually opens the store URL (for example `steam://rungameid/…`).
-2. Because the store client actually starts the game, Gamut then **watches for the game's process** by matching processes started from the game's install folder.
-3. When it appears: mark "Playing", start a session, optionally minimise Gamut. When it exits: save the session and add to playtime.
-4. Playtime shown = the store's reported time (where available) or Gamut's own tracked time, whichever is larger.
-5. Optional: pre-launch / post-launch scripts per game (for example, change resolution or start a mod manager).
+1. **Login** — select name, enter PIN.
+2. **Dashboard** — counts per status (board / kanban style), my open tickets,
+   overdue tickets, today's closed repairs.
+3. **Receive unit** (the fastest screen — used all day)
+   - Scan or type serial → if known, show model + history; if new, pick model
+     (or **"+ Add new model"** inline) → enter problem → create ticket.
+4. **Ticket page**
+   - Header: ticket #, unit serial, model, status, assigned technician, priority.
+   - Tabs: Diagnosis · Repair actions · Parts used · Tests · Photos · Timeline.
+   - Big buttons for the next allowed status ("Start repair", "Send to test", …).
+5. **Unit page** — specs, every ticket ever opened, full timeline, repeat-repair badge.
+6. **Technician page** — tickets worked, actions logged, time spent, filter by date.
+7. **Search** — by serial, ticket #, model, technician, fault, date range.
+8. **Reports** (see §8).
+9. **Admin / Settings** — categories & attributes, models, fault codes, components,
+   action types, parts, users, backup.
 
----
-
-## 7. Security and terms of service
-
-- **Never ask for or store store passwords.** Every login happens in the store's own login page inside a webview; Gamut only keeps the resulting token, in the OS keychain.
-- Only read local launcher files; never modify them.
-- Unofficial APIs may break, and using them is a grey area in some stores' terms. They are read-only and used the same way Playnite, Heroic, and GOG Galaxy use them, but this is a personal project risk to be aware of. Keep each connector isolated so a broken one never breaks the app.
-- API keys for IGDB / SteamGridDB: each user enters their own, or a small proxy server holds them if the app is ever distributed.
-
----
-
-## 8. Roadmap
-
-Each phase ends with something usable.
-
-### Phase 0: Setup (≈1 week)
-- Tauri + React project, SQLite schema and migrations, CI (lint, test, build for Windows).
-- Connector trait and a fake "demo" connector for UI work.
-
-### Phase 1: Installed games, one-click launch (≈2–3 weeks)
-- Installed-game detection for **Steam, Epic, GOG, Ubisoft, EA, Battle.net**.
-- Basic grid with Steam CDN art + SteamGridDB, game page, launch via URL schemes.
-- **Result:** every installed game on the PC in one launcher.
-
-### Phase 2: Full owned libraries (≈3–4 weeks)
-- Account login and owned-game sync for **Steam, GOG, Epic**, then **Ubisoft, EA, Xbox**.
-- Install / uninstall buttons via the store clients.
-- Duplicate merging with IGDB, background sync.
-- **Result:** the whole library, installed or not.
-
-### Phase 3: Make it beautiful (≈3 weeks)
-- Home shelves, filters, collections, tags, search.
-- Animated transitions, colour accents from covers, themes.
-- Playtime tracking through process watching.
-
-### Phase 4: More sources (ongoing)
-- Amazon, itch.io, Humble, Rockstar, Riot, emulators, manual games.
-- Big Picture mode with controller support.
-
-### Phase 5: Extras (later)
-- Achievements (Steam has an official API; others vary).
-- External plugin protocol for community connectors.
-- Cloud backup of library settings / collections, phone companion viewer.
-- macOS and Linux builds (Steam, GOG, Epic via Heroic tools, Lutris).
+Design notes for the factory floor:
+- Large fonts and buttons (gloves, distance from screen).
+- Keyboard + barcode-scanner friendly (a USB scanner types like a keyboard, so the
+  serial field just needs focus).
+- Minimum typing: pick from lists, free text only for notes.
+- Works fully offline on the local network.
 
 ---
 
-## 9. Testing
+## 8. Reports & KPIs
 
-- **Connector tests** use recorded fixtures: sample `libraryfolders.vdf`, Epic `.item` manifests, GOG registry exports, API JSON responses. They run in CI without real accounts.
-- **Merge tests**: a list of tricky title pairs ("DOOM (2016)" vs "DOOM", "Witcher 3 GOTY" vs "The Witcher 3: Wild Hunt").
-- **Manual test checklist** per store on a real Windows machine for login, launch, and install.
-- UI: component tests (Vitest + Testing Library) and a few Playwright end-to-end tests against the demo connector.
-
----
-
-## 10. Open questions
-
-1. **New app or Playnite extension?** (Section 2.) This plan assumes a new app.
-2. **Which OS first?** Plan assumes Windows first, since most store clients only run there.
-3. **Personal use only, or public release?** Public release means handling API keys through a proxy and being more careful with unofficial APIs.
-4. **Language preference:** Rust + TypeScript (Tauri) or all-TypeScript (Electron)?
-5. **Which stores do you actually use?** Their order in Phases 1–2 can follow that.
+- **Open repairs by status** (live)
+- **Repairs closed** per day / week / month
+- **Average repair time** (received → closed) and **hands-on time** (sum of actions)
+- **Top faults** — overall, by model, by period
+- **Top replaced components / parts**
+- **Repeat repair rate** — units that came back within N days
+- **First-time pass rate** — tickets that passed the first test
+- **Technician summary** — tickets closed, avg time, re-work rate
+- **Scrap rate** and scrap reasons
+- Export everything to **Excel / CSV**; print a ticket / unit history as **PDF**.
 
 ---
 
-## 11. Proposed repo layout
+## 9. Tech stack (recommendation)
+
+| Layer | Choice | Why |
+|---|---|---|
+| Desktop shell | **Electron** | Runs on Windows PCs on the floor, easy installer, huge ecosystem |
+| UI | **React + TypeScript** + a component library (e.g. Mantine or shadcn/ui) | Fast to build forms/tables, type-safe |
+| Database (Phase 1) | **SQLite** (via `better-sqlite3`) | One file, zero setup, very reliable |
+| Database (multi-PC) | **PostgreSQL** on a factory server | Several repair benches share the same data |
+| Data access | **Drizzle ORM** + migrations | Same code works with SQLite and Postgres, so moving later is easy |
+| Validation | **Zod** | Same rules for forms and database writes |
+| Reports export | `exceljs` (Excel), built-in Electron print-to-PDF | |
+| Labels | QR / Code128 via `bwip-js`, printed on a label printer | Stick a repair tag on the unit |
+| Tests | **Vitest** (logic), **Playwright** (screens) | |
+| Packaging | **electron-builder** → Windows `.exe` installer | |
+
+**Key decision — one PC or many?**
+- **One repair PC:** SQLite file on that PC. Simplest. Back it up daily.
+- **Several PCs / benches:** run a small PostgreSQL server on the factory network
+  and point every desktop app to it. (Alternative: a small web server + browser
+  clients — but you asked for desktop, so Electron + shared Postgres keeps it desktop.)
+
+Start with SQLite, but because we use Drizzle, switching to Postgres later is a
+configuration change plus a data migration, not a rewrite.
+
+---
+
+## 10. Project structure (when we start coding)
 
 ```
 gamut/
-├─ src-tauri/                # Rust core
-│  ├─ src/
-│  │  ├─ connectors/         # steam.rs, epic.rs, gog.rs, ubisoft.rs, ea.rs, battlenet.rs, xbox.rs, …
-│  │  ├─ library/            # merge, dedupe, search
-│  │  ├─ launcher/           # launch + process watch + playtime
-│  │  ├─ metadata/           # igdb.rs, steamgriddb.rs, image cache
-│  │  ├─ db/                 # schema, migrations, queries
-│  │  └─ main.rs
-│  └─ tests/fixtures/        # sample manifests and API responses
-├─ src/                      # React UI
-│  ├─ screens/               # Home, Library, GamePage, Settings, BigPicture
-│  ├─ components/
-│  └─ theme/
-├─ docs/PLAN.md
-└─ README.md
+├── apps/desktop/
+│   ├── electron/            # main process: window, DB connection, backups, printing
+│   └── src/                 # React UI
+│       ├── pages/           # Dashboard, Receive, Ticket, Unit, Technician, Reports, Admin
+│       ├── components/
+│       └── lib/
+├── packages/core/           # business rules: statuses, allowed transitions, validation
+├── packages/db/             # Drizzle schema, migrations, seed data (washing machine catalog)
+├── docs/
+└── package.json
 ```
+
+The UI never talks to the database directly — it calls functions in `core`
+(e.g. `openTicket`, `logRepairAction`, `recordTest`) which enforce the rules
+(one open ticket per unit, allowed status moves, required fields, audit log).
+
+---
+
+## 11. Build roadmap
+
+### Phase 0 — Setup (½–1 week)
+- [ ] Create the Electron + React + TypeScript project
+- [ ] Add SQLite + Drizzle, first migration
+- [ ] Seed: Washing Machine category, attributes, components, fault codes, action types
+- [ ] CI: lint, typecheck, tests on every push
+
+### Phase 1 — MVP: track repairs (2–3 weeks)
+- [ ] Simple login (name + PIN)
+- [ ] Manage technicians/users
+- [ ] **Add / edit models manually** (with washing-machine attributes)
+- [ ] **Register units** by serial number (scanner-ready field)
+- [ ] **Open repair ticket** with reported problem and priority
+- [ ] **Diagnosis**: pick fault codes + notes
+- [ ] **Repair actions**: technician, component, action type, description, time
+- [ ] Status workflow with history (who/when)
+- [ ] **Unit history** page and **technician** page
+- [ ] Search by serial / ticket / technician
+- [ ] Daily automatic backup of the database file
+
+✅ At the end of Phase 1 you can already answer: *who repaired what, what they did, and the full history.*
+
+### Phase 2 — Quality & parts (2 weeks)
+- [ ] Test/QC step with the checklist, pass/fail, fail → back to repair
+- [ ] Parts catalog + parts used per action
+- [ ] Photo attachments
+- [ ] Repeat-repair warning
+- [ ] Dashboard status board
+
+### Phase 3 — Reports & polish (1–2 weeks)
+- [ ] KPI reports (§8) with date filters
+- [ ] Excel export, PDF print of ticket / unit history
+- [ ] QR repair-tag printing
+- [ ] Roles & permissions (technician / QC / supervisor / admin)
+- [ ] Audit log viewer
+- [ ] Windows installer + auto-update
+
+### Phase 4 — Grow (later)
+- [ ] Move to shared PostgreSQL for multiple benches
+- [ ] Add more categories (dryer, dishwasher, fridge, AC…) — data only
+- [ ] Spare-parts stock levels & low-stock alerts
+- [ ] Optional: import/export with ERP if those products ever get there
+- [ ] Optional: Arabic/English UI switch (if needed on the floor)
+
+---
+
+## 12. What YOU need to prepare (before / during Phase 1)
+
+1. **List of washing machine models** you repair — brand, model number,
+   load type, capacity, spin rpm. (A simple Excel sheet is perfect; we'll import it.)
+2. **List of technicians** — employee ID, name, shift, role.
+3. **Real fault codes** used by your machines / your team (replace the examples in §6.2).
+4. **Component list** your technicians actually use (check §6.1, add/remove).
+5. **Spare parts list** — part number + name (Phase 2).
+6. **Current paper forms or Excel sheets** used for repairs today — so the app
+   matches how people already work.
+7. **Serial number format** — sample serials and whether units have a barcode/QR label.
+8. **Hardware**: how many repair PCs, is there a barcode scanner, a label printer,
+   a server on the network?
+9. **Test checklist** your QC uses after repair (check §6.3).
+10. **Where units come from** (production reject, customer return, etc. — §4.1 `source`).
+
+---
+
+## 13. Open decisions
+
+| # | Decision | Recommendation |
+|---|---|---|
+| 1 | One PC or several PCs sharing data? | Start with one (SQLite); plan for Postgres |
+| 2 | Login strictness | Name + PIN in Phase 1 |
+| 3 | Track spare-parts **stock**, or just usage? | Usage only at first |
+| 4 | Language(s) of the interface | English first; add others if needed |
+| 5 | Track labor time per action? | Yes — needed for avg-repair-time KPIs |
+| 6 | Operating system on floor PCs | Assumed Windows |
+
+---
+
+## 14. Definition of done for the MVP
+
+- A technician can register a washing machine, open a ticket, log diagnosis and
+  repair actions, and close it — in under 2 minutes for a simple repair.
+- Searching a serial number shows every ticket, every action, every technician
+  and every status change for that unit.
+- A technician's page lists everything they repaired in a chosen date range.
+- No repair record can be silently deleted; every change is traceable.
+- The database is backed up automatically every day.
