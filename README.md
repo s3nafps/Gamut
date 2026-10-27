@@ -1,13 +1,16 @@
 # Gamut Repair
 
-A desktop app for tracking **repairs** of home appliances inside the factory.
-It runs on several PCs in the factory, all connected to one central server
-inside the company. It works like a small MES/MOS, but instead of tracking production it tracks
-what broke, who fixed it, what they did, and the full repair history of every unit.
+Repair and quality tracking for a home-appliance factory — a desktop app on
+several PCs, connected to one central server inside the factory.
 
-- Products are **added manually** (they are not in the ERP).
-- First appliance type: **washing machines**. Other types (dryers, fridges, ACs…)
-  can be added later without changing the code.
+Every unit is scanned and tested in the **test room**. If it passes, it goes
+through. If it fails, a **repairman** fixes it and it goes back to the test room.
+The app records every test, every repair, who did it, and the full history of
+each unit.
 
-See **[docs/PLAN.md](docs/PLAN.md)** for the full plan: features, data model,
-screens, workflow, tech stack and the step-by-step build roadmap.
+- Three interfaces: **quality (test room)**, **repairman**, **production line dashboard**
+- Three languages: **French, Arabic, English**
+- Products are **added manually** (they are not in the ERP)
+- First appliance type: **washing machines**; others can be added later without code changes
+
+See **[docs/PLAN.md](docs/PLAN.md)** for the full plan.

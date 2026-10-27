@@ -1,475 +1,447 @@
 # Gamut Repair — Full Plan
 
-Desktop repair-tracking system for a home-appliance factory.
-Starting appliance: **washing machine**.
+Repair and quality tracking for a home-appliance factory.
+Desktop app on several PCs, central server inside the factory.
+Languages: **French, Arabic, English**. First appliance: **washing machine**.
 
 ---
 
-## 1. What the app must do (in one paragraph)
+## 1. Summary
 
-When a washing machine arrives at the repair area, someone **registers it**
-(scans or types its serial number; if the model is new, adds the model by hand).
-A **repair ticket** is opened with the reported problem. A **technician** picks it
-up, diagnoses it, and logs every **repair action** (what component, what was done,
-which parts were used, how long it took). The unit is **tested**. If it passes,
-the ticket is closed; if it fails, it goes back to repair. Every step is recorded,
-so you can open any unit and see its **complete repair history**, or open any
-technician and see **everything they repaired**.
+Every unit coming off the production line goes to the **test room**, where it
+is **scanned and tested**.
 
----
+- **Test OK** → the unit passes through. The pass is recorded.
+- **Test not OK** → the tester records what failed. A **repair ticket** opens
+  automatically and the unit goes to a **repairman**.
+- The repairman logs the repair (what he did, on which part, which spare parts)
+  and sends the unit **back to the test room**.
+- The unit is tested again. Pass → released. Fail → back to repair, as many
+  times as needed.
 
-## 2. Core questions the app answers
+Everything is recorded: every test, every repair, who did it, when, and on
+which PC. Open any serial number and you see its **full history**. Open any
+repairman or tester and you see **everything they did**.
 
-| Question | Where it's answered |
-|---|---|
-| Who repaired this unit? | Unit page → history timeline |
-| What exactly was done to it? | Ticket → repair actions list |
-| What was the fault? | Ticket → diagnosis (fault code + notes) |
-| Has this unit been repaired before? | Unit page → all tickets (repeat repair warning) |
-| What did technician X work on today / this month? | Technician page |
-| Which faults happen most on model Y? | Reports → top faults by model |
-| How many units are waiting right now, and where? | Dashboard → status board |
-| How long do repairs take? | Reports → average repair time |
+Products are **not in the ERP**, so models are **added manually** in the app.
 
 ---
 
-## 3. Users and roles
+## 2. The flow
 
-There are two kinds of people on the floor, working at two kinds of PCs:
+```
+ PRODUCTION LINE
+       ↓
+ [ TEST ROOM ]  scan serial → test
+       ↓
+   OK? ── yes ──► PASSED → released ✅
+       │
+       no  (failed checks + defect)
+       ↓
+ [ REPAIR ]  repair ticket opens automatically
+   repairman: diagnose → repair → log parts
+       ↓  "Send back to test room"
+ [ TEST ROOM ]  retest
+       ↓
+   OK? ── yes ──► PASSED after repair → released ✅
+       │
+       no ──► back to the same repairman (attempt 2, 3…)
+
+ Supervisor can SCRAP a unit at any point (reason required).
+```
+
+Rules:
+- The test room is the **only** place that can pass or fail a unit.
+- A repairman **cannot** pass a unit — it must always go back to the test room.
+- A unit has **at most one open repair ticket** at a time.
+- After **3 failed retests** (configurable), the supervisor is alerted.
+- If a unit that already passed comes back again later, the app shows a
+  **"Repeat repair"** warning with its earlier history.
+
+---
+
+## 3. The three interfaces
+
+Each PC is set up once as one type of station. After login it opens directly on
+its own interface. Supervisors and admins also get **Reports** and **Settings**.
+
+### 3.1 Quality interface — test room PC
+
+The busiest screen: it must be **fast** (scan → result in a few seconds).
+
+- **Scan box** always active (barcode scanner).
+- After scan:
+  - **New serial** → unit is created; model is detected from the serial/barcode
+    if possible, otherwise the last-used model stays selected.
+  - **Known serial** → shows whether it's a first test or a **retest after
+    repair**, and what the repairman did.
+- **Checklist** with big ✓ / ✗ buttons (and number fields for measurements).
+- **PASS** button (one click when everything is OK).
+- **FAIL** → pick failed checks + defect code + optional note/photo →
+  repair ticket is created automatically.
+- Side panels: **retest queue** (units coming back from repair), today's counts
+  (tested / passed / failed), my last 20 scans (to correct a mistake quickly).
+
+### 3.2 Repairman interface — repair PCs
+
+- **My queue**: tickets assigned to me, **returned from test again** shown first in red.
+- **Waiting for a repairman**: new failed units to **claim**.
+- **Waiting for parts**.
+- **Repair screen** (scan or click a unit):
+  - Top: what the test room found (failed checks, defect, tester's note, photos).
+  - Unit's past history (earlier repairs, repeat-repair warning).
+  - Log **diagnosis** (actual fault found).
+  - Log **repair actions**: part of the machine → what was done (replaced,
+    adjusted, cleaned…) → spare parts used → time.
+  - Button **"Send back to test room"** (needs at least one repair action).
+- My day: units repaired, average time, how many failed the retest.
+
+### 3.3 Production line dashboard — big screen near the line (read-only)
+
+Live view, refreshes automatically, readable from a distance. No login needed
+(the PC is set up as a display station).
+
+- **Today / this shift**: units tested, passed first time, failed, repaired and
+  passed, scrapped.
+- **First-pass yield %** (passed on first test ÷ tested) vs **target**, colored
+  green / orange / red.
+- **Units by hour** chart (tested vs failed).
+- **Top 5 defects** today — so the line can fix the root cause.
+- **Currently in repair** and **waiting for retest** counts; oldest unit in repair.
+- **By model** (if several models run on the line).
+- Language chosen per screen; can rotate between views.
+
+### 3.4 Supervisor / admin (any PC, by login)
+
+- **Reports** (§8) and **search** by serial, ticket, model, person, defect, date.
+- **Unit page**: full timeline of tests and repairs.
+- **Person page**: what each repairman / tester did, with filters.
+- **Settings**: users, stations, models, categories, defect codes, components,
+  repair actions, spare parts, test checklist, targets, translations.
+
+---
+
+## 4. Roles
 
 | Role | Works at | Can do | Cannot do |
 |---|---|---|---|
-| **Repairman (technician)** | Repair PCs (several) | Register units, open/claim tickets, log diagnosis and repair actions, parts used, photos, **send to quality test** | Record test results |
-| **Quality tester** | Quality-test PC (one) | See the test queue, run the checklist, record **Pass / Fail** with reasons | Log repair actions |
-| **Supervisor** | Any PC | Everything above + assign/reassign tickets, scrap units, all reports | — |
-| **Admin** | Any PC | Users, stations, categories, models, fault codes, components, parts | — |
+| **Quality tester** | Test room PC | Scan, test, pass / fail, add defect + photos | Log repairs |
+| **Repairman** | Repair PCs | Claim tickets, diagnose, log repairs and parts, send back to test | Pass or fail a unit |
+| **Supervisor** | Any PC | Everything above, reassign, scrap, reports | — |
+| **Admin** | Any PC | Users, stations, catalogs, translations, targets | — |
+| *(Line display)* | Big screen | View only | Everything else |
 
-**Separation rule:** nobody can pass the quality test on a unit they repaired
-themselves. Repair and test are always two different people, so the test result
-stays independent.
-
-A person can have more than one role (e.g. a senior repairman who also tests),
-but the separation rule still applies on each ticket.
-
-Login is **employee ID + PIN** from Phase 1, and the menu each person sees depends
-on their role.
+Login: **employee ID + PIN** (or employee badge scan). The app locks itself after
+inactivity so the next person doesn't work under someone else's name.
 
 ---
 
-## 4. Main concepts (the data model)
+## 5. Three languages: French, Arabic, English
 
-The design is **generic**: "Washing machine" is just the first *category*.
-Adding fridges later = adding data, not rewriting code.
+- Each user picks a language; it's saved with their profile. The login screen
+  has a quick FR / ع / EN switch.
+- **Arabic shows right-to-left**: the whole layout flips (menus, tables, forms).
+  This is built in from the start, not added later.
+- **All lists are translated**, not only the buttons: defect codes, components,
+  repair action types, checklist items, statuses. Each has a name in FR, AR, EN.
+  So a tester can fail a unit in Arabic and the repairman reads it in French.
+- **Codes stay the same in every language** (e.g. `WM-DR01`), so people can always
+  talk about the same defect.
+- **Free-text notes** stay in whatever language they were typed.
+- **Exports and printed reports** come out in the language of the person who prints them.
+- Numbers use 0–9 digits in all languages; dates in DD/MM/YYYY.
+- Fonts that support Arabic and French accents (e.g. Noto Sans + Noto Sans Arabic).
+- An admin screen to **edit translations** without a new app version.
+
+---
+
+## 6. Data model
 
 ```
 Category (Washing Machine)
-  └── Model (e.g. WM-8KG-FL-1400)        ← added manually
-        └── Unit (one physical machine, by serial number)
-              └── Repair Ticket (one visit to the repair area)
-                    ├── Diagnosis (fault codes found)
-                    ├── Repair Actions (what was done, by whom)
-                    │     └── Parts Used
-                    ├── Test Results
-                    ├── Attachments (photos)
-                    └── Status History (every status change, who, when)
+  └── Model (added manually)
+        └── Unit (one machine, by serial number)
+              ├── Tests (every test: first test, retests)
+              │     └── Check results (each checklist item)
+              └── Repair tickets (opened when a test fails)
+                    ├── Diagnosis
+                    ├── Repair actions → Parts used
+                    ├── Photos
+                    └── Status history
 ```
 
-### 4.1 Tables
+### 6.1 Tables
 
-**categories** — appliance types
-- `id`, `name` (Washing Machine), `code` (WM), `active`
+**categories** — `id`, `code` (WM), `name` (FR/AR/EN), `active`
 
-**category_attributes** — extra fields per category (so each appliance type can have its own specs)
-- `id`, `category_id`, `name` (e.g. "Capacity (kg)"), `type` (text / number / list), `options` (for lists), `required`
-- Washing machine examples: Load type (Front / Top), Capacity (kg), Max spin (rpm), Energy class, Inverter motor (yes/no)
+**category_attributes** — extra fields per category
+- `id`, `category_id`, `name` (FR/AR/EN), `type` (text / number / list), `options`, `required`
+- Washing machine: load type (front / top), capacity (kg), max spin (rpm), energy class, inverter (yes/no)
 
-**models** — product models, entered manually
-- `id`, `category_id`, `brand`, `model_number`, `name`, `notes`, `active`, `created_by`, `created_at`
-- `attribute_values` (the values for the category attributes above)
+**models** — added manually
+- `id`, `category_id`, `brand`, `model_number`, `name`, `serial_prefix` (to detect the model from a scan), `attribute_values`, `active`
 
-**units** — each individual machine
-- `id`, `model_id`, `serial_number` (unique), `production_date` (optional), `source`
-  (Production line reject / End-of-line test fail / Customer return / Warehouse damage / Other),
-  `current_status`, `created_by`, `created_at`, `notes`
+**units** — created the first time a serial is scanned in the test room
+- `id`, `serial_number` (unique), `model_id`, `production_line` (optional), `production_date` (optional)
+- `status` (In test / Passed / In repair / Waiting for retest / Scrapped)
+- `first_scanned_at`, `released_at`, `first_pass` (yes/no — passed on first test)
 
-**stations** — each PC registered in the system
-- `id`, `name` (e.g. "Repair bench 3", "Quality test"), `type` (Repair / Quality), `active`
-- Every repair action and test result stores which station it was done on.
+**stations** — every PC
+- `id`, `name` ("Test room", "Repair 1", "Line display 1"), `type` (Quality / Repair / Display), `language` (for displays), `active`
 
-**technicians / users**
-- `id`, `employee_id`, `full_name`, `role`, `skill_level`, `shift`, `pin_hash`, `active`
+**users** — `id`, `employee_id`, `full_name`, `roles`, `language`, `shift`, `pin_hash`, `active`
 
-**repair_tickets** — one per repair visit
-- `id`, `ticket_number` (e.g. R-2026-000123), `unit_id`
-- `reported_problem` (free text), `reported_by`, `received_at`
-- `priority` (Low / Normal / High / Urgent)
-- `assigned_to` (technician), `status`
-- `opened_at`, `closed_at`, `outcome` (Repaired / Scrapped / Returned unrepaired / No fault found)
+**tests** — one row per test
+- `id`, `unit_id`, `attempt_no` (1 = first test, 2+ = retest), `tested_by`, `station_id`, `tested_at`
+- `result` (Pass / Fail), `defect_code_id` (if fail), `notes`
+- `repair_ticket_id` (the ticket this test opened, or the ticket being re-tested)
 
-**fault_codes** — catalog of known faults per category
-- `id`, `category_id`, `code`, `description`, `component_group`
+**checklist_items** — test checklist per category
+- `id`, `category_id`, `name` (FR/AR/EN), `type` (OK/Not OK or measured), `min`, `max`, `unit`, `order`
 
-**ticket_faults** — faults found during diagnosis
-- `id`, `ticket_id`, `fault_code_id`, `notes`, `diagnosed_by`, `diagnosed_at`
+**check_results** — `id`, `test_id`, `checklist_item_id`, `ok`, `value`
 
-**components** — catalog of components per category (what gets repaired)
-- `id`, `category_id`, `name` (Drain pump, Door lock, Motor, Main PCB…)
+**defect_codes** — `id`, `category_id`, `code`, `name` (FR/AR/EN), `component_group`
 
-**action_types** — Replaced / Repaired / Adjusted / Cleaned / Re-wired / Software reflash / Tightened / Inspected only
+**repair_tickets** — opened automatically by a failed test
+- `id`, `ticket_number` (R-2026-000123), `unit_id`, `opened_by_test_id`
+- `assigned_to`, `status`, `opened_at`, `closed_at`
+- `outcome` (Repaired & passed / Scrapped)
 
-**repair_actions** — the core log: *who did what on what*
-- `id`, `ticket_id`, `technician_id`, `station_id`, `component_id`, `action_type_id`
-- `description` (free text), `started_at`, `ended_at`, `duration_min`
+**diagnoses** — actual fault found by the repairman
+- `id`, `ticket_id`, `defect_code_id`, `notes`, `diagnosed_by`, `diagnosed_at`
 
-**parts** — spare parts list (optional stock in later phase)
-- `id`, `part_number`, `name`, `category_id`, `component_id`, `unit_cost` (optional)
+**components** — `id`, `category_id`, `name` (FR/AR/EN)
 
-**parts_used**
-- `id`, `repair_action_id`, `part_id`, `quantity`, `old_part_serial` (optional), `new_part_serial` (optional)
+**action_types** — Replaced / Repaired / Adjusted / Cleaned / Re-wired / Software reflash / Tightened / Inspected only (FR/AR/EN)
 
-**test_results** — one row per test attempt at the quality PC
-- `id`, `ticket_id`, `attempt_no` (1st test, 2nd test…), `tested_by`, `station_id`, `tested_at`
-- `result` (Pass / Fail), `fail_reason` (fault code), `notes`
-- `repaired_by` (copied from the ticket, so re-work per repairman is easy to report)
+**repair_actions** — *who did what on what*
+- `id`, `ticket_id`, `repairman_id`, `station_id`, `component_id`, `action_type_id`
+- `description`, `started_at`, `ended_at`, `duration_min`
 
-**test_checklist_items** — the checklist per category (editable by admin)
-- `id`, `category_id`, `name` (e.g. "Spin at max rpm"), `type` (OK/Not OK, or a measured value), `min`, `max`, `unit`, `order`
+**parts** — `id`, `part_number`, `name` (FR/AR/EN), `component_id`
 
-**test_check_results** — result of each checklist item in a test attempt
-- `id`, `test_result_id`, `checklist_item_id`, `ok` (yes/no), `value` (if measured), `notes`
+**parts_used** — `id`, `repair_action_id`, `part_id`, `quantity`, `old_part_serial`, `new_part_serial`
 
-**attachments**
-- `id`, `ticket_id`, `storage_key` (file kept on the server), `caption`, `uploaded_by`, `uploaded_at`
+**attachments** — `id`, `unit_id`, `test_id` or `ticket_id`, `storage_key` (file on server), `caption`, `uploaded_by`, `uploaded_at`
 
-**status_history** — automatic, never edited
-- `id`, `ticket_id`, `from_status`, `to_status`, `changed_by`, `changed_at`, `comment`
+**status_history** — automatic, never edited: `ticket_id`/`unit_id`, `from`, `to`, `changed_by`, `changed_at`, `comment`
 
-**audit_log** — automatic record of any create/edit/delete (who, what, when, old value, new value)
+**audit_log** — automatic record of every create / edit (who, what, when, old → new)
 
-> Every editable table also has `updated_at`, `updated_by` and a `version` number
-> (used to stop two PCs from overwriting each other — see §9.2).
+**targets** — e.g. first-pass yield target per line / model
 
-> Rule: repair records are **never hard-deleted**. Mistakes are corrected with a new
-> entry or a "void" flag, so history stays trustworthy.
+**translations** — interface texts in FR / AR / EN (editable by admin)
+
+Every editable table also has `updated_at`, `updated_by` and a `version` number
+(stops two PCs from overwriting each other).
+
+> Records are **never deleted**. A mistake is corrected with a new entry or a
+> "void" flag (with reason), so history stays trustworthy.
+
+### 6.2 Ticket statuses
+
+`WAITING FOR REPAIRMAN` → `IN REPAIR` ⇄ `WAITING FOR PARTS` → `WAITING FOR RETEST`
+→ (test room) → `CLOSED – PASSED` or back to `IN REPAIR` · any → `SCRAPPED` (supervisor)
 
 ---
 
-## 5. Repair workflow (ticket statuses)
+## 7. Washing machine starter data
 
-```
-[ REPAIR PCs ]
-  RECEIVED
-     ↓
-  DIAGNOSING ──► WAITING FOR PARTS
-     ↓                 ↓
-  IN REPAIR  ◄─────────┘   ◄──────────┐
-     ↓  "Send to quality test"        │
-                                      │
-[ QUALITY-TEST PC ]                   │
-  WAITING FOR TEST                    │
-     ↓                                │
-  TESTING ── FAIL (reason) ───────────┘
-     ↓ PASS
-  CLOSED (Repaired)
+Starting point only — to be replaced with your real lists (and translated).
 
-Any status ──► SCRAPPED  (supervisor only, reason required)
-DIAGNOSING ──► CLOSED (No fault found)
-```
+### 7.1 Components
+Door lock · Door seal · Door hinge · Drum · Tub · Bearings & seal · Spider arm ·
+Drive belt · Motor · Carbon brushes · Tacho / hall sensor · Drain pump · Drain hose ·
+Inlet valve · Inlet hose · Pressure switch / level sensor · Heater · NTC sensor ·
+Main PCB · Display / UI board · Wiring harness · Shock absorbers · Springs ·
+Counterweight · Detergent drawer · Filter · Power cord / EMI filter · Cabinet / panels · Feet
 
-**Hand-off between repair and quality:**
-1. The repairman finishes and presses **"Send to quality test"**. The app checks
-   that at least one repair action is logged.
-2. The unit appears in the **test queue** on the quality PC right away (live update).
-3. The tester scans the serial, runs the checklist and records **Pass** or **Fail**.
-4. **Pass** → the ticket closes as Repaired.
-5. **Fail** → the tester picks the failed checks and a reason. The ticket goes
-   **back to the same repairman's queue** (marked "Returned from QC") with the
-   reason shown at the top. The next test is attempt 2, 3…
-6. After a set number of fails (e.g. 3), the supervisor is alerted.
+### 7.2 Defect codes (examples)
+| Code | English | Français | العربية |
+|---|---|---|---|
+| WM-DL01 | Door does not lock | La porte ne se verrouille pas | الباب لا يُقفل |
+| WM-DR01 | Does not drain | Ne vidange pas | لا يصرّف الماء |
+| WM-IN01 | Does not fill | Ne se remplit pas | لا يمتلئ بالماء |
+| WM-LK01 | Water leak | Fuite d'eau | تسرّب الماء |
+| WM-HT01 | Not heating | Ne chauffe pas | لا يسخّن |
+| WM-MT01 | Drum does not turn | Le tambour ne tourne pas | الحوض لا يدور |
+| WM-SP01 | Does not spin | N'essore pas | لا يعصر |
+| WM-NV01 | Noise / vibration | Bruit / vibration | ضجيج / اهتزاز |
+| WM-EL01 | No power | Pas d'alimentation | لا يشتغل |
+| WM-UI01 | Display / buttons fault | Défaut afficheur / boutons | عطل في الشاشة / الأزرار |
+| WM-CS01 | Cosmetic damage | Défaut d'aspect | عيب في المظهر |
 
-- Every status change is saved in `status_history` with who/when.
-- A unit can have **only one open ticket at a time**.
-- If a unit comes back after being closed, a **new ticket** is opened and the app
-  shows a **"Repeat repair"** warning with the previous tickets.
+*(Arabic/French wording to be checked by your team — factory terms vary.)*
 
----
-
-## 6. Washing machine starter data
-
-You'll refine these with your technicians — they are a starting point so the
-app isn't empty on day one.
-
-### 6.1 Components
-Door lock / interlock · Door seal (gasket) · Door hinge · Drum · Tub ·
-Bearings & seal · Spider arm · Drive belt · Motor (universal / inverter) ·
-Carbon brushes · Tacho / hall sensor · Drain pump · Drain hose · Inlet valve ·
-Inlet hose · Pressure switch / level sensor · Heater element · NTC temperature sensor ·
-Main PCB (control board) · Display / user-interface board · Wiring harness ·
-Shock absorbers · Suspension springs · Counterweight · Detergent drawer ·
-Filter · Power cord / EMI filter · Cabinet / panels · Feet / leveling
-
-### 6.2 Fault codes (example list — replace with your brand's real codes)
-| Code | Description | Component group |
-|---|---|---|
-| WM-DL01 | Door does not lock | Door lock |
-| WM-DR01 | Water does not drain | Drain pump / filter / hose |
-| WM-IN01 | Water does not fill | Inlet valve / pressure switch |
-| WM-LK01 | Water leak | Seal / hoses / tub |
-| WM-HT01 | Water not heating | Heater / NTC |
-| WM-MT01 | Drum does not turn | Motor / belt / PCB |
-| WM-SP01 | Does not spin | Motor / tacho / unbalance |
-| WM-NV01 | Excessive noise / vibration | Bearings / shocks / counterweight |
-| WM-EL01 | No power / dead | Power cord / PCB / EMI filter |
-| WM-UI01 | Display / buttons fault | UI board |
-| WM-CS01 | Cosmetic damage | Cabinet / panels |
-| WM-NF00 | No fault found | — |
-
-### 6.3 Post-repair test checklist
-Power on · Door lock / unlock · Water fill · Heating (temp rise) · Wash rotation
-both directions · Drain · Spin at max rpm · Noise/vibration OK · No leaks ·
-Error memory cleared · Visual / cosmetic check.
-
----
-
-## 7. Screens
-
-Each PC is set up once as a **Repair station** or the **Quality station**, so it
-opens on the right home screen after login.
-
-1. **Login** — employee ID + PIN (or scan an employee badge).
-2. **Repair home (repair PCs)** — my tickets, **returned from QC** (shown first,
-   in red), unassigned tickets to claim, waiting for parts.
-3. **Quality home (quality PC)** — **test queue** in arrival order, units being
-   tested, today's pass/fail counts.
-   - **Test screen**: scan serial → unit info + what was repaired and by whom →
-     checklist with big ✓ / ✗ buttons (and value fields for measurements) →
-     Pass or Fail (fail requires failed checks + reason).
-4. **Supervisor dashboard** — counts per status across all stations, overdue
-   tickets, repeat fails, today's closed repairs.
-5. **Receive unit** (the fastest screen — used all day)
-   - Scan or type serial → if known, show model + history; if new, pick model
-     (or **"+ Add new model"** inline) → enter problem → create ticket.
-6. **Ticket page**
-   - Header: ticket #, unit serial, model, status, assigned technician, priority.
-   - Tabs: Diagnosis · Repair actions · Parts used · Tests · Photos · Timeline.
-   - Big buttons for the next allowed status ("Start repair", "Send to test", …).
-7. **Unit page** — specs, every ticket ever opened, full timeline, repeat-repair badge.
-8. **Person page** — for a repairman: tickets repaired, actions, time spent, QC
-   fail rate. For a tester: units tested, pass/fail. Filter by date.
-9. **Search** — by serial, ticket #, model, technician, fault, date range.
-10. **Reports** (see §8).
-11. **Admin / Settings** — users, stations, categories & attributes, models,
-    fault codes, components, action types, parts, **test checklist**, backup.
-
-Design notes for the factory floor:
-- Large fonts and buttons (gloves, distance from screen).
-- Keyboard + barcode-scanner friendly (a USB scanner types like a keyboard, so the
-  serial field just needs focus).
-- Minimum typing: pick from lists, free text only for notes.
-- Runs entirely on the factory network — no internet needed.
+### 7.3 Test checklist
+Power on · Door lock / unlock · Water fill · Heating · Rotation both directions ·
+Drain · Spin at max rpm · Noise / vibration · No leaks · No error codes ·
+Visual / cosmetic.
 
 ---
 
 ## 8. Reports & KPIs
 
-- **Open repairs by status** (live)
-- **Repairs closed** per day / week / month
-- **Average repair time** (received → closed) and **hands-on time** (sum of actions)
-- **Top faults** — overall, by model, by period
-- **Top replaced components / parts**
-- **Repeat repair rate** — units that came back within N days
-- **First-time pass rate at QC** — repairs that passed on the first test
-- **QC fail reasons** — which checks fail most, by model and by repairman
-- **Repairman summary** — tickets closed, avg time, QC fail (re-work) rate
-- **Tester summary** — units tested per day, average test time
-- **Waiting time for test** — how long units sit in the test queue (spots a bottleneck at the single quality PC)
-- **Scrap rate** and scrap reasons
-- Export everything to **Excel / CSV**; print a ticket / unit history as **PDF**.
+- **First-pass yield (FPY)** — % of units that pass on the first test, by day / shift / model / line
+- **Units tested / passed / failed / scrapped** per hour, shift, day, month
+- **Top defects** — overall, by model, by period (Pareto chart)
+- **Top replaced components and spare parts**
+- **Retest fail rate** — repairs that failed the retest, by repairman
+- **Repair time** — waiting for repairman, hands-on time, total time in repair
+- **Waiting for retest** — how long repaired units wait for the test room
+- **Repeat repairs** — units repaired more than once
+- **Per person** — tester: units tested; repairman: units repaired, avg time, retest fails
+- Export to **Excel / CSV**; print unit history or reports as **PDF** (in the user's language)
 
 ---
 
 ## 9. Architecture — central server, many PCs
 
-The app runs on **several PCs** in the factory. The **database, the catalogs
-(categories, models, fault codes, components, parts) and all repair data live on
-one server inside the factory**. Every PC sees the same data at the same time.
-No internet is needed — everything stays on the company network.
-
 ```
-   Repair PC 1      ─┐
-   Repair PC 2      ─┤                 FACTORY SERVER
-   Repair PC …      ─┼──── LAN ────►  ┌──────────────────────────┐
-   Quality-test PC  ─┤                │  API server (Gamut API)  │
-   (Supervisor PC)  ─┘                │        │                 │
-                                       │  PostgreSQL database     │
-     (desktop app on each PC)          │  Photo / file storage    │
-                                       │  Nightly backups         │
-                                       └──────────────────────────┘
+  Test room PC        ─┐
+  Repair PC 1, 2, …   ─┤                  FACTORY SERVER
+  Line dashboard (TV) ─┼──── network ──►  ┌────────────────────────┐
+  Supervisor PC       ─┘                  │ Gamut API server       │
+                                          │ PostgreSQL database    │
+     desktop app on each PC               │ Photos / files         │
+                                          │ Nightly backups        │
+                                          └────────────────────────┘
 ```
 
-### 9.1 Why an API server in the middle (instead of each PC talking to the database directly)
-- **Security:** the database password lives only on the server, not on every PC.
-- **One set of rules:** "one open ticket per unit", allowed status changes,
-  required fields and the audit log are enforced in one place — no PC can bypass them.
-- **Easy updates:** most changes happen on the server; PCs just get a new app version.
-- **Live updates:** the server pushes changes to every PC, so the dashboard and
-  status board refresh automatically when someone else updates a ticket.
-- **Files:** photos are uploaded to the server, so every PC can see them.
-
-### 9.2 Multi-user rules
-- **Two people editing the same ticket:** each record has a `version` number.
-  If someone else saved first, the app says *"This ticket was changed by Ahmed
-  2 minutes ago — reload"* instead of silently overwriting.
-- **Claiming:** a technician "claims" a ticket so two people don't work on the same unit.
-- **Unique numbers:** ticket numbers (R-2026-000123) are generated by the server,
-  so two PCs can never create the same number.
-- **Server unreachable:** the app shows a clear red banner ("No connection to
-  server — changes not saved") and blocks saving, so no data is lost or split.
-  (Offline mode with later sync is possible but adds a lot of complexity — not planned.)
-- **Login is per person, not per PC:** any technician can log in on any bench.
-  The app auto-locks after inactivity so the next person doesn't log actions
-  under someone else's name.
+- PCs talk only to the **API server**, never directly to the database:
+  the database password stays on the server, and all rules are enforced in one place.
+- **Live updates**: a fail in the test room appears instantly in the repair
+  queue; the line dashboard updates on its own.
+- **Two people on the same record**: version check → "changed by someone else, reload".
+- **Server unreachable**: red banner, saving blocked — nothing gets lost or split.
+- **Linux or Windows server**: still to decide. Everything runs in **Docker**,
+  so it works on both. Linux (Ubuntu Server) is recommended: free, lighter,
+  Docker runs natively. Windows Server works too (Docker Desktop / WSL2) if your
+  IT team prefers to manage Windows.
 
 ---
 
 ## 10. Tech stack
 
-| Layer | Choice | Why |
-|---|---|---|
-| Desktop app | **Electron + React + TypeScript** | Windows PCs on the floor, easy installer, fast to build forms/tables |
-| UI components | Mantine (or shadcn/ui) | Ready-made tables, forms, dialogs |
-| API server | **Node.js + Fastify + TypeScript** | Same language as the app; business rules shared |
-| Database | **PostgreSQL 16** | Reliable, multi-user, free |
-| Data access | **Drizzle ORM** + versioned migrations | Type-safe, controlled schema changes |
-| Validation | **Zod** (shared between app and server) | Same rules on both sides |
-| Live updates | WebSocket / Server-Sent Events | Dashboards refresh on every PC |
-| Auth | Employee ID + PIN/password, sessions with tokens, roles | |
-| Files/photos | Folder on the server (or MinIO later) | |
-| Deployment on server | **Docker Compose** (API + Postgres + backup job) | One command to install/upgrade; easy for IT |
-| Backups | Nightly `pg_dump` + photo folder copy, kept 30 days, copied to a second disk/NAS | |
-| Reports export | `exceljs` (Excel), print-to-PDF | |
-| Labels | QR / Code128 via `bwip-js` on a label printer | Repair tag on the unit |
-| Tests | Vitest (rules, API), Playwright (screens) | |
-| App installer & updates | electron-builder; updates downloaded **from the factory server** | No internet needed |
+| Layer | Choice |
+|---|---|
+| Desktop app | **Electron + React + TypeScript** (Windows PCs) |
+| UI components | **Mantine** (built-in right-to-left support for Arabic) |
+| Languages | **i18next** (FR / AR / EN), translations stored on the server |
+| API server | **Node.js + Fastify + TypeScript** |
+| Database | **PostgreSQL 16** |
+| Data access | **Drizzle ORM** + versioned migrations |
+| Validation | **Zod** (shared by app and server) |
+| Live updates | WebSocket / Server-Sent Events |
+| Charts (dashboard, reports) | ECharts |
+| Server install | **Docker Compose** (API + database + backup job) |
+| Backups | Nightly database dump + photos, kept 30 days, copied to a second disk / NAS |
+| Exports | `exceljs` (Excel), print-to-PDF |
+| Labels (later) | QR / barcode via `bwip-js` |
+| Tests | Vitest (rules, API), Playwright (screens, including Arabic layout) |
+| Installer & updates | electron-builder; updates come **from the factory server** |
 
 ---
 
-## 11. Project structure (when we start coding)
+## 11. Project structure
 
 ```
 gamut/
 ├── apps/
-│   ├── desktop/             # Electron + React app installed on each PC
-│   │   ├── electron/        # window, settings (server address), printing, auto-update
-│   │   └── src/pages/       # Dashboard, Receive, Ticket, Unit, Technician, Reports, Admin
-│   └── server/              # Fastify API: routes, auth, live updates, file uploads
+│   ├── desktop/               # Electron app installed on each PC
+│   │   ├── electron/          # window, station setup, printing, auto-update
+│   │   └── src/
+│   │       ├── quality/       # test room interface
+│   │       ├── repair/        # repairman interface
+│   │       ├── line-dashboard/# production line big screen
+│   │       ├── supervisor/    # reports, search, settings
+│   │       └── i18n/          # fr.json, ar.json, en.json
+│   └── server/                # API, login, live updates, file uploads
 ├── packages/
-│   ├── core/                # business rules: statuses, allowed transitions, validation (shared)
-│   └── db/                  # Drizzle schema, migrations, seed data (washing machine catalog)
+│   ├── core/                  # rules: flow, statuses, who can do what (shared)
+│   └── db/                    # database schema, migrations, starter data
 ├── deploy/
-│   ├── docker-compose.yml   # API + PostgreSQL + backup job
-│   └── backup/              # backup & restore scripts
-├── docs/
-└── package.json
+│   ├── docker-compose.yml
+│   └── backup/
+└── docs/
 ```
-
-The desktop app never touches the database. It calls the API
-(e.g. `POST /tickets`, `POST /tickets/:id/actions`, `POST /tickets/:id/tests`),
-and the server applies the rules from `core` and writes the audit log.
 
 ---
 
 ## 12. Build roadmap
 
 ### Phase 0 — Setup (1 week)
-- [ ] Create the project (desktop app + API server + shared packages)
-- [ ] PostgreSQL + Drizzle schema, first migration
-- [ ] Seed: Washing Machine category, attributes, components, fault codes, action types
-- [ ] Docker Compose for the server; run everything locally for development
-- [ ] CI: lint, typecheck, tests on every push
+- [ ] Project skeleton (desktop app + server + shared packages)
+- [ ] Database schema + starter washing machine data (FR / AR / EN)
+- [ ] Three-language setup with Arabic right-to-left working from day one
+- [ ] Docker setup; CI checks on every push
 
-### Phase 1 — MVP: track repairs (3–4 weeks)
-- [ ] Login with employee ID + PIN, auto-lock after inactivity
-- [ ] Desktop app setting: server address (one-time per PC)
-- [ ] Manage technicians/users
-- [ ] **Add / edit models manually** (with washing-machine attributes)
-- [ ] **Register units** by serial number (scanner-ready field)
-- [ ] **Open repair ticket** with reported problem and priority; claim / assign
-- [ ] **Diagnosis**: pick fault codes + notes
-- [ ] **Repair actions**: technician, component, action type, description, time
-- [ ] Stations: set each PC as Repair or Quality; role-based home screens
-- [ ] Status workflow with history (who/when)
-- [ ] **Send to quality test → test queue → Pass / Fail → back to repairman**
-      (simple pass/fail + reason; full checklist in Phase 2)
-- [ ] Separation rule: can't test your own repair
-- [ ] Edit conflict protection (version check)
-- [ ] **Unit history** page and **technician** page
-- [ ] Search by serial / ticket / technician
-- [ ] Nightly automatic backup on the server + tested restore
-- [ ] **Pilot**: install the server, the quality PC + 1–2 repair PCs, run with real units for 1 week
+### Phase 1 — Core flow (3–4 weeks)
+- [ ] Login (employee ID + PIN), auto-lock, station setup per PC
+- [ ] Admin: users, stations, **models (manual entry)**, defect codes, components, actions
+- [ ] **Quality interface**: scan → pass / fail with defect (simple checklist)
+- [ ] Failed test → **repair ticket opens automatically**
+- [ ] **Repairman interface**: queue, claim, diagnosis, repair actions, send back to test
+- [ ] Retest loop + alert after 3 fails
+- [ ] Unit history page + person page + search
+- [ ] Live updates between PCs; edit-conflict protection
+- [ ] Nightly backup + tested restore
+- [ ] **Pilot** on the server + test room PC + 1–2 repair PCs for 1 week
 
-✅ At the end of Phase 1, any PC can answer: *who repaired what, what they did, who tested it, and the full history.*
+✅ End of Phase 1: every unit tested, every repair logged, who did what, full history — in 3 languages.
 
-### Phase 2 — Quality & parts (2 weeks)
-- [ ] Full test checklist on the quality PC (✓/✗ items + measured values)
-- [ ] Supervisor alert after repeated QC fails
-- [ ] Parts catalog + parts used per action
-- [ ] Photo attachments (stored on the server)
+### Phase 2 — Line dashboard & details (2 weeks)
+- [ ] **Production line dashboard** (live FPY, hourly chart, top defects, in repair)
+- [ ] Full checklist with measured values (min/max)
+- [ ] Spare parts used
+- [ ] Photos from test room and repair
+- [ ] Model detection from serial prefix
 - [ ] Repeat-repair warning
-- [ ] Live dashboard / status board on every PC (can also run on a big TV screen)
 
-### Phase 3 — Reports & polish (2 weeks)
-- [ ] KPI reports (§8) with date filters
-- [ ] Excel export, PDF print of ticket / unit history
-- [ ] QR repair-tag printing
-- [ ] Full roles & permissions (technician / QC / supervisor / admin)
+### Phase 3 — Reports & roll-out (2 weeks)
+- [ ] All KPI reports (§8), Excel / PDF export in each language
+- [ ] Translation editor for admins
+- [ ] Targets (FPY) per line / model
 - [ ] Audit log viewer
-- [ ] Windows installer + auto-update from the factory server
-- [ ] Roll out to all PCs
+- [ ] Installer + auto-update from the server; roll out to all PCs
+- [ ] Short training guide in FR / AR / EN
 
-### Phase 4 — Grow (later)
-- [ ] More categories (dryer, dishwasher, fridge, AC…) — data only
-- [ ] Spare-parts stock levels & low-stock alerts
-- [ ] Optional: link to ERP if those products ever get there
-- [ ] Optional: Arabic/English UI switch
-- [ ] Optional: login with company accounts (Active Directory)
+### Phase 4 — Later
+- [ ] More appliance categories (dryer, dishwasher, fridge, AC…) — data only
+- [ ] Spare-parts stock and low-stock alerts
+- [ ] Repair tag / label printing
+- [ ] Login with company accounts (Active Directory)
+- [ ] Link with the ERP if products get added there
 
 ---
 
 ## 13. What YOU need to prepare
 
-### Data (for Phase 1)
-1. **List of washing machine models** you repair — brand, model number,
-   load type, capacity, spin rpm. (An Excel sheet is perfect; we'll import it.)
-2. **List of people** — employee ID, name, shift, and whether they are a
-   repairman, quality tester, supervisor (or more than one).
-3. **Real fault codes** used by your machines / your team (replace the examples in §6.2).
-4. **Component list** your technicians actually use (check §6.1).
-5. **Spare parts list** — part number + name (Phase 2).
-6. **Current paper forms or Excel sheets** used for repairs today.
-7. **Serial number format** — sample serials, and whether units have a barcode/QR label.
-8. **Test checklist** your quality testers use (check §6.3) — and for any measured
-   values (water temperature, spin rpm, current…), the allowed min/max.
-9. **Where units come from** (production reject, customer return, etc.).
+### Data
+1. **Washing machine models** — brand, model number, load type, capacity, spin rpm
+   (Excel sheet is fine; we'll import it).
+2. **Sample serial numbers / barcode labels** — and whether the serial tells us the model.
+3. **People** — employee ID, name, shift, role (tester / repairman / supervisor).
+4. **Your real defect codes** with names in FR / AR / EN.
+5. **Your test checklist** — and min/max for any measured values.
+6. **Component list and spare parts** (part number + name).
+7. **Current paper forms / Excel** used in the test room and repair area today.
+8. **Production lines** — how many, their names, and FPY targets.
 
-### Server & network (ask your IT team)
-10. **A server or VM** on the factory network:
-    - Minimum: 4 CPU cores, 8 GB RAM, 100 GB SSD (photos are the main space user)
-    - OS: **Linux (Ubuntu Server 24.04) recommended**, or Windows Server with Docker
-11. **A fixed address** for the server — a static IP or a name like `gamut.factory.local`.
-12. **Firewall:** allow the repair PCs to reach the server on one port (e.g. 443 or 8443).
-    The database port stays closed to everyone except the server itself.
-13. **Backup target:** a second disk, NAS or network share for the nightly backups.
-14. **HTTPS certificate** from IT (or we create an internal one).
-15. **Who has admin access** to the server for installs/upgrades.
+### Server & network (with IT)
+9. **Server or VM**: 4 CPU cores, 8 GB RAM, 100 GB SSD. **Choose Linux or Windows.**
+10. A **fixed address** for the server (static IP or name like `gamut.factory.local`).
+11. **Firewall**: one port open from the PCs to the server.
+12. **Backup location**: second disk, NAS or network share.
+13. Who has **admin access** to the server.
 
-### Hardware at the benches
-16. **Number of repair PCs** (plus the one quality PC) and a name for each
-    (e.g. "Repair bench 1").
-17. PCs: Windows 10/11, 8 GB RAM, screen 22"+ recommended.
-18. **USB barcode scanner** per bench (if units have barcodes).
-19. **Label printer** (e.g. Zebra) for QR repair tags — Phase 3.
-20. Optional: **webcam / phone** for repair photos; a TV for the live status board.
+### Hardware
+14. **Test room PC** + **USB barcode scanner** (essential — the test room scans every unit).
+15. **Repair PCs** — how many; a scanner at each is recommended.
+16. **Big screen (TV) + small PC or mini-PC** for each production line dashboard.
+17. Windows 10/11 PCs, 8 GB RAM, 22"+ screens.
+18. Optional: webcam / tablet for photos.
 
 ---
 
@@ -477,32 +449,28 @@ and the server applies the rules from `core` and writes the audit log.
 
 | # | Decision | Status |
 |---|---|---|
-| 1 | One PC or several? | ✅ **Several PCs, central server inside the factory** |
-| 2 | How PCs reach the data | ✅ Through an API server (not direct DB access) |
-| 2b | Stations | ✅ **1 quality-test PC + several repair PCs** |
-| 2c | Can a repairman test his own repair? | No (separation rule) — tell me if you want to allow it |
-| 2d | Where are units first registered? | Open — at a repair PC, or at the quality PC (e.g. if units first fail QC at end of line)? The app supports both |
-| 2e | QC fail goes back to… | The same repairman by default; supervisor can reassign |
-| 3 | Login | Employee ID + PIN in Phase 1; company accounts later (optional) |
-| 4 | Track spare-parts **stock**, or just usage? | Usage only at first |
-| 5 | Interface language(s) | English first — tell me if Arabic or others are needed |
-| 6 | Track labor time per action? | Yes — needed for repair-time KPIs |
-| 7 | Floor PC operating system | Assumed Windows |
-| 8 | Server operating system | Linux recommended — confirm with IT |
-| 9 | Offline mode when server is down | Not planned — app blocks saving and shows a warning |
+| 1 | Several PCs, central server in the factory | ✅ |
+| 2 | PCs → API server → database (no direct database access) | ✅ |
+| 3 | Units enter through the **test room**; fail → repair → retest | ✅ |
+| 4 | Three interfaces: **quality, repairman, production line dashboard** (+ supervisor/admin) | ✅ |
+| 5 | Languages **FR / AR / EN**, Arabic right-to-left | ✅ |
+| 6 | Server OS: Linux or Windows | ⏳ Open — works on both (Docker); Linux recommended |
+| 7 | Does **every** unit go through the test room, or only some? | ⏳ Open — plan assumes every unit |
+| 8 | Does the serial/barcode tell us the model? | ⏳ Open |
+| 9 | One production line or several? | ⏳ Open |
+| 10 | Failed retest goes back to the same repairman | ✅ Default (supervisor can reassign) |
+| 11 | Offline mode if server down | Not planned — saving blocked with a warning |
 
 ---
 
-## 15. Definition of done for the MVP
+## 15. Definition of done (Phase 1)
 
-- From **any** PC, a technician can register a washing machine, open a ticket,
-  log diagnosis and repair actions, and close it — in under 2 minutes for a simple repair.
-- A change made on one PC shows up on the others within a few seconds.
-- "Send to quality test" on a repair PC puts the unit in the quality PC's queue;
-  a Fail sends it back to the repairman with the reason; a Pass closes it.
-- Searching a serial number shows every ticket, every action, every technician
-  and every status change for that unit.
-- A technician's page lists everything they repaired in a chosen date range.
-- No repair record can be silently deleted; every change is traceable.
-- Two people can't overwrite each other's changes without a warning.
-- The server database is backed up every night, and a restore has been tested.
+- In the test room, a tester scans a unit and passes it in **under 10 seconds**.
+- A fail creates a repair ticket that shows up **instantly** on the repair PCs.
+- A repairman logs the repair and sends it back; it appears in the test room's retest queue.
+- Searching a serial shows every test, every repair, every person and every
+  status change for that unit.
+- The whole app works in **French, Arabic (right-to-left) and English**, including
+  defect codes and checklist items.
+- No record can be silently deleted; every change is traceable.
+- The database is backed up every night, and a restore has been tested.
