@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>Gamut Repair</title>
+    <style>
+      body { font-family: system-ui, sans-serif; background: #f1f3f5; display: grid; place-items: center; height: 100vh; margin: 0; }
+      .card { background: #fff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 24px #0001; width: 560px; }
+      h1 { color: #1c7ed6; margin: 0 0 8px; }
+      p { color: #495057; font-size: 18px; line-height: 1.5; }
+      .ar { direction: rtl; text-align: right; }
+      input { width: 100%; box-sizing: border-box; font-size: 22px; padding: 14px; border: 2px solid #ced4da; border-radius: 10px; font-family: monospace; }
+      button { margin-top: 16px; width: 100%; font-size: 22px; padding: 14px; border: 0; border-radius: 10px; background: #1c7ed6; color: #fff; cursor: pointer; }
+      #msg { color: #e03131; min-height: 24px; margin-top: 12px; font-size: 17px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Gamut Repair</h1>
+      <p>Adresse du serveur de l'usine — <i>Factory server address</i></p>
+      <p class="ar">عنوان خادم المصنع</p>
+      <form id="f">
+        <input id="url" placeholder="http://gamut.usine.local:8080" autofocus />
+        <button type="submit">OK</button>
+      </form>
+      <div id="msg"></div>
+    </div>
+    <script>
+      document.getElementById('f').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById('msg');
+        msg.textContent = '…';
+        const res = await window.gamut.setServer(document.getElementById('url').value);
+        if (!res.ok)
+          msg.textContent =
+            res.error === 'invalid'
+              ? 'Adresse non valide / Invalid address / عنوان غير صحيح'
+              : 'Serveur injoignable / Server not reachable / تعذّر الاتصال بالخادم';
+      });
+    </script>
+  </body>
+</html>

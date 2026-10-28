@@ -1,0 +1,28 @@
+{
+  "name": "gamut",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Gamut Repair — repair and quality tracking for the factory",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "echo \"Run in two terminals: npm run dev:server  and  npm run dev:web\" ",
+    "dev:server": "npm run dev -w @gamut/server",
+    "dev:web": "npm run dev -w @gamut/web",
+    "build": "npm run build -w @gamut/web",
+    "start": "npm run start -w @gamut/server",
+    "test": "npm run test -w @gamut/core && npm run test -w @gamut/server",
+    "typecheck": "npm run typecheck -w @gamut/core && npm run typecheck -w @gamut/server && npm run typecheck -w @gamut/web",
+    "db:generate": "npm run db:generate -w @gamut/server",
+    "db:seed": "npm run db:seed -w @gamut/server",
+    "check": "npm run typecheck && npm run check-i18n -w @gamut/web && npm test && npm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "5.7.3"
+  }
+}

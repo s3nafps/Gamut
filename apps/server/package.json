@@ -1,0 +1,30 @@
+{
+  "name": "@gamut/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate",
+    "db:seed": "tsx src/db/seed-cli.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.2.17",
+    "@fastify/static": "8.3.0",
+    "@gamut/core": "0.1.0",
+    "drizzle-orm": "0.38.4",
+    "fastify": "5.2.1",
+    "pg": "8.13.1",
+    "tsx": "4.19.2",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.7",
+    "@types/pg": "8.11.10",
+    "drizzle-kit": "0.30.6",
+    "vitest": "2.1.9"
+  }
+}

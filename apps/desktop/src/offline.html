@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>Gamut Repair</title>
+    <style>
+      body { font-family: system-ui, sans-serif; background: #fff5f5; display: grid; place-items: center; height: 100vh; margin: 0; text-align: center; }
+      h1 { color: #e03131; font-size: 34px; }
+      p { font-size: 20px; color: #495057; }
+      code { font-size: 18px; }
+    </style>
+  </head>
+  <body>
+    <div>
+      <h1>Pas de connexion au serveur<br />No connection to the server<br />لا يوجد اتصال بالخادم</h1>
+      <p><code id="server"></code></p>
+      <p>Nouvelle tentative toutes les 5 secondes… · Retrying every 5 seconds… · إعادة المحاولة كل 5 ثوانٍ…</p>
+      <p>F5 · Menu Gamut → Change server address</p>
+    </div>
+    <script>
+      document.getElementById('server').textContent = new URLSearchParams(location.search).get('server') || '';
+    </script>
+  </body>
+</html>

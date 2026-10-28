@@ -408,44 +408,48 @@ gamut/
 
 ## 12. Build roadmap
 
+> **Status (Oct 2026):** Phase 0 and Phase 1 are built (except the pilot), plus the production
+> line dashboard and the full checklist from Phase 2. See [SETUP.md](SETUP.md) to install and run.
+> `[x]` done · `[~]` partly done · `[ ]` to do
+
 ### Phase 0 — Setup (1 week)
-- [ ] Project skeleton (desktop app + server + shared packages)
-- [ ] Database schema + starter washing machine data (FR / AR / EN)
-- [ ] Three-language setup with Arabic right-to-left working from day one
-- [ ] Docker setup; CI checks on every push
+- [x] Project skeleton (desktop app + server + shared packages)
+- [x] Database schema + starter washing machine data (FR / AR / EN)
+- [x] Three-language setup with Arabic right-to-left working from day one
+- [x] Docker setup; CI checks on every push
 
 ### Phase 1 — Core flow (3–4 weeks)
-- [ ] Login (employee ID + PIN), auto-lock, station setup per PC
-- [ ] Admin: users, stations, **models and colors (manual entry)**, defect codes, components, actions
-- [ ] **Serial number rule** → model + color detected on every scan
-- [ ] **Quality interface**: scan → pass / fail with defect (simple checklist)
-- [ ] Failed test → **repair ticket opens automatically**
-- [ ] **Repairman interface**: queue, claim, diagnosis, repair actions, send back to test
-- [ ] Retest loop + alert after 3 fails
-- [ ] Unit history page + person page + search
-- [ ] Live updates between PCs; edit-conflict protection
-- [ ] Nightly backup + tested restore
+- [x] Login (employee ID + PIN), auto-lock, station setup per PC
+- [x] Admin: users, stations, **models and colors (manual entry)**, defect codes, components, actions
+- [x] **Serial number rule** → model + color detected on every scan
+- [x] **Quality interface**: scan → pass / fail with defect (simple checklist)
+- [x] Failed test → **repair ticket opens automatically**
+- [x] **Repairman interface**: queue, claim, diagnosis, repair actions, send back to test
+- [x] Retest loop + alert after 3 fails
+- [x] Unit history page + person page + search
+- [x] Live updates between PCs; edit-conflict protection
+- [x] Nightly backup + tested restore
 - [ ] **Pilot** on the server + test room PC + 1–2 repair PCs for 1 week
 
 ✅ End of Phase 1: every unit tested, every repair logged, who did what, full history — in 3 languages.
 
 ### Phase 2 — Line dashboard & details (2 weeks)
-- [ ] **Production line dashboard** (live FPY, hourly chart, top defects, in repair)
-- [ ] Full checklist with measured values (min/max)
-- [ ] Spare parts used
+- [x] **Production line dashboard** (live FPY, hourly chart, top defects, in repair)
+- [x] Full checklist with measured values (min/max)
+- [~] Spare parts used *(free text per repair today; a parts catalog comes later)*
 - [ ] Photos from test room and repair
-- [ ] Repeat-repair warning
+- [x] Repeat-repair warning
 
 ### Phase 3 — Reports & roll-out (2 weeks)
 - [ ] All KPI reports (§8), Excel / PDF export in each language
 - [ ] Translation editor for admins
 - [ ] Targets (FPY) per model
 - [ ] Audit log viewer
-- [ ] Installer + auto-update from the server; roll out to all PCs
+- [~] Installer + auto-update from the server; roll out to all PCs *(installer config done; the screens update from the server automatically)*
 - [ ] Short training guide in FR / AR / EN
 
 ### Phase 4 — Later
-- [ ] More appliance categories (dryer, dishwasher, fridge, AC…) — data only
+- [x] More appliance categories (dryer, dishwasher, fridge, AC…) — data only
 - [ ] Spare-parts stock and low-stock alerts
 - [ ] Repair tag / label printing
 - [ ] Login with company accounts (Active Directory)

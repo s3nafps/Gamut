@@ -1,0 +1,25 @@
+{
+  "name": "@gamut/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gamut Repair desktop app for the factory PCs",
+  "author": "Gamut",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis",
+    "check": "node --check src/main.cjs && node --check src/preload.cjs"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.gamut.repair",
+    "productName": "Gamut Repair",
+    "directories": { "output": "release" },
+    "files": ["src/**/*"],
+    "win": { "target": "nsis", "icon": "build/icon.png" },
+    "nsis": { "oneClick": false, "perMachine": true, "allowToChangeInstallationDirectory": true }
+  }
+}

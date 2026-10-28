@@ -1,0 +1,7 @@
+body {
+  background: var(--mantine-color-gray-0);
+}
+/* Arrows point the other way in Arabic. */
+[dir='rtl'] .flip-rtl {
+  transform: scaleX(-1);
+}

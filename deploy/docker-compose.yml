@@ -1,0 +1,54 @@
+# Factory server: run `docker compose up -d` in this folder (after creating .env from .env.example).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: gamut
+      POSTGRES_USER: gamut
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      TZ: ${TZ:?Set TZ in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gamut -d gamut"]
+      interval: 5s
+      retries: 20
+    # The database port is NOT published: only the app container can reach it.
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://gamut:${DB_PASSWORD}@db:5432/gamut
+      TZ: ${TZ}
+      SEED_DEMO: ${SEED_DEMO:-false}
+    ports:
+      - "${PORT:-8080}:8080"
+
+  backup:
+    image: postgres:16-alpine
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: gamut
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: gamut
+      TZ: ${TZ}
+      BACKUP_HOUR: ${BACKUP_HOUR:-2}
+      KEEP_DAYS: ${KEEP_DAYS:-30}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+      - ./backup/backup.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "/backup.sh"]
+
+volumes:
+  db-data:

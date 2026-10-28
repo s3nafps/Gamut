@@ -9,8 +9,16 @@ The app records every test, every repair, who did it, and the full history of
 each unit.
 
 - Three interfaces: **quality (test room)**, **repairman**, **production line dashboard**
-- Three languages: **French, Arabic, English**
-- Products are **added manually** (they are not in the ERP)
-- First appliance type: **washing machines**; others can be added later without code changes
+  (+ supervisor search and admin settings)
+- Three languages: **French, Arabic (right-to-left), English**
+- Products are **added manually** (they are not in the ERP); model and color are read from the
+  serial number once its format is set up
+- Starts with **washing machines**; other product types are added from Settings, no code change
 
-See **[docs/PLAN.md](docs/PLAN.md)** for the full plan.
+**Get started:** [docs/SETUP.md](docs/SETUP.md) · **Full plan:** [docs/PLAN.md](docs/PLAN.md)
+
+```bash
+npm ci
+npm run dev:server   # terminal 1 — server + built-in database with demo data
+npm run dev:web      # terminal 2 — open http://localhost:5173
+```

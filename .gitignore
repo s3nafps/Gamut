@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/
+*.log
+.env
+apps/desktop/out/
+apps/desktop/release/
+.DS_Store
