@@ -19,6 +19,10 @@ export const ERROR_CODES = [
   'no_repair_action',
   'already_claimed',
   'duplicate',
+  'not_enough_stock',
+  'photo_too_large',
+  'wrong_pin',
+  'weak_pin',
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 

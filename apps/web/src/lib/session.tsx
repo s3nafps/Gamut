@@ -7,6 +7,9 @@ import type { User } from './types';
 
 type SessionCtx = {
   user: User | null;
+  /** Signed in with a guessable PIN (e.g. 1234): ask to change it. */
+  weakPin: boolean;
+  clearWeakPin: () => void;
   ready: boolean;
   login: (employeeId: string, pin: string) => Promise<User>;
   logout: () => void;
@@ -18,6 +21,11 @@ const Ctx = createContext<SessionCtx | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
+  const [weakPin, setWeakPin] = useState(() => sessionStorage.getItem('gamut.weakPin') === '1');
+  const clearWeakPin = useCallback(() => {
+    sessionStorage.removeItem('gamut.weakPin');
+    setWeakPin(false);
+  }, []);
   const qc = useQueryClient();
   const { i18n } = useTranslation();
 
@@ -25,6 +33,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (getToken()) post('/api/logout').catch(() => undefined);
     setToken(null);
     setUser(null);
+    sessionStorage.removeItem('gamut.weakPin');
+    setWeakPin(false);
     qc.clear();
   }, [qc]);
 
@@ -46,9 +56,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (employeeId: string, pin: string) => {
-      const res = await post<{ token: string; user: User }>('/api/login', { employeeId, pin });
+      const res = await post<{ token: string; user: User; weakPin: boolean }>('/api/login', { employeeId, pin });
       setToken(res.token);
       setUser(res.user);
+      if (res.weakPin) sessionStorage.setItem('gamut.weakPin', '1');
+      setWeakPin(res.weakPin);
       i18n.changeLanguage(res.user.language);
       return res.user;
     },
@@ -56,8 +68,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<SessionCtx>(
-    () => ({ user, ready, login, logout, can: (p) => !!user && can(user.roles, p) }),
-    [user, ready, login, logout],
+    () => ({ user, ready, weakPin, clearWeakPin, login, logout, can: (p) => !!user && can(user.roles, p) }),
+    [user, ready, weakPin, clearWeakPin, login, logout],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

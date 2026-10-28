@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { loadTextOverrides } from '../i18n';
 
 /**
  * Listens to the server's live channel. Whenever anything changes on any PC,
@@ -22,7 +23,14 @@ export function useLive() {
         setConnected(true);
         qc.invalidateQueries();
       };
-      es.addEventListener('changed', () => qc.invalidateQueries());
+      es.addEventListener('changed', (ev) => {
+        qc.invalidateQueries();
+        try {
+          if (JSON.parse((ev as MessageEvent).data).topic === 'translations') loadTextOverrides();
+        } catch {
+          /* ignore */
+        }
+      });
       es.onerror = () => {
         // Brief blips are normal; only show the banner after 4 s.
         if (!downTimer) downTimer = setTimeout(() => !closed && setConnected(false), 4000);

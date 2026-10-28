@@ -1,0 +1,36 @@
+name: Desktop installer (Windows)
+
+# Builds the Windows installer for the factory PCs.
+# - Every push to main and every manual run: the installer is attached to the run (Actions → this run → Artifacts).
+# - Pushing a tag like v1.0.0: the installer is also published as a GitHub Release.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths: ["apps/desktop/**", ".github/workflows/desktop.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Build installer
+        run: npm run dist:win -w @gamut/desktop -- --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gamut-Repair-Setup
+          path: apps/desktop/release/*.exe
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: apps/desktop/release/*.exe

@@ -31,8 +31,29 @@ export const ENTITIES: Record<string, Entity> = {
       name: z.string().trim().min(1).max(200),
       brand: z.string().trim().max(100).optional().default(''),
       attributes: z.record(z.string().max(200)).optional().default({}),
+      fpyTarget: z.number().min(0).max(100).nullable().optional().default(null),
       active,
     }),
+  },
+  parts: {
+    table: s.parts,
+    schema: z.object({
+      partNumber: z.string().trim().min(1).max(60),
+      name: localizedNameSchema,
+      categoryId: id.nullable().optional().default(null),
+      componentId: id.nullable().optional().default(null),
+      stockQty: z.number().int().min(0).optional().default(0),
+      minStock: z.number().int().min(0).optional().default(0),
+      active,
+    }),
+    // Stock changes only through "received" / "count" (so every change is traced).
+    prepare: (data, isCreate) => {
+      if (!isCreate) {
+        const { stockQty: _ignored, ...rest } = data;
+        return rest;
+      }
+      return data;
+    },
   },
   colors: { table: s.colors, schema: z.object({ code, name: localizedNameSchema, active }) },
   serialRules: {
@@ -101,27 +122,52 @@ function mapUnique(err: unknown): never {
   throw err;
 }
 
-export async function createEntity(db: Db, name: string, body: unknown) {
+const clean = (row: Record<string, unknown> | undefined) => {
+  if (!row) return null;
+  const { pinHash: _drop, ...rest } = row;
+  return rest;
+};
+
+export async function createEntity(db: Db, name: string, body: unknown, userId: number) {
   const ent = ENTITIES[name];
   if (!ent) throw new AppError('not_found', 404);
   const parsed = ent.schema.parse(body);
   const values = ent.prepare ? ent.prepare(parsed, true) : parsed;
   try {
     const [row] = await db.insert(ent.table).values(values).returning();
+    await db.insert(s.events).values({ type: 'admin_change', userId, data: { entity: name, id: row.id, action: 'create', after: clean(row) } });
     return row;
   } catch (err) {
     mapUnique(err);
   }
 }
 
-export async function updateEntity(db: Db, name: string, rowId: number, body: unknown) {
+export async function updateEntity(db: Db, name: string, rowId: number, body: unknown, userId: number) {
   const ent = ENTITIES[name];
   if (!ent) throw new AppError('not_found', 404);
   const parsed = (ent.schema as z.AnyZodObject).partial().parse(body);
   const values = ent.prepare ? ent.prepare(parsed, false) : parsed;
   try {
+    const [before] = await db.select().from(ent.table).where(eq(ent.table.id, rowId));
+    if (!before) throw new AppError('not_found', 404);
     const [row] = await db.update(ent.table).set(values).where(eq(ent.table.id, rowId)).returning();
-    if (!row) throw new AppError('not_found', 404);
+    // Keep only the fields that changed, so the change log is readable.
+    const b = clean(before)!;
+    const a = clean(row)!;
+    const changed = Object.keys(a).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+    const pinChanged = 'pinHash' in values;
+    await db.insert(s.events).values({
+      type: 'admin_change',
+      userId,
+      data: {
+        entity: name,
+        id: rowId,
+        action: 'update',
+        before: Object.fromEntries(changed.map((k) => [k, b[k]])),
+        after: Object.fromEntries(changed.map((k) => [k, a[k]])),
+        ...(pinChanged ? { pinChanged: true } : {}),
+      },
+    });
     return row;
   } catch (err) {
     mapUnique(err);

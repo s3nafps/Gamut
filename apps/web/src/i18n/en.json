@@ -10,7 +10,8 @@
     "no": "No",
     "nothing": "Nothing here",
     "save": "Save",
-    "yes": "Yes"
+    "yes": "Yes",
+    "print": "Print / PDF"
   },
   "connection": {
     "lostTitle": "No connection to the server",
@@ -24,7 +25,11 @@
     "admin": "Settings",
     "myActivity": "My activity",
     "changeStation": "Change this PC's station",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "parts": "Spare parts",
+    "reports": "Reports",
+    "help": "Help",
+    "audit": "Change log"
   },
   "setup": {
     "title": "Set up this PC",
@@ -167,7 +172,8 @@
     "faultFound": "Actual fault",
     "saveDiagnosis": "Save fault",
     "saved": "Saved",
-    "thisRepair": "This repair"
+    "thisRepair": "This repair",
+    "otherParts": "Other parts (not in the list)"
   },
   "timeline": {
     "by": "by {{name}}",
@@ -262,7 +268,16 @@
     "kind": {
       "ok": "OK / not OK",
       "measure": "Measured value"
-    }
+    },
+    "modelTarget": "First-pass yield target for this model (%) — empty = general target",
+    "modelTargetShort": "Target",
+    "parts": "Spare parts",
+    "partsHelp": "The spare parts catalog. Repairmen pick parts from it and the stock goes down automatically. Set a minimum to get a low-stock alert.",
+    "initialStock": "Stock at start",
+    "stockFromPartsPage": "Change stock from the Spare parts page (received / inventory count).",
+    "texts": "Screen texts",
+    "textsHelp": "Change any wording on the screens. Changed texts are highlighted. Clear a box to go back to the original text. Changes reach every PC immediately.",
+    "textsSearch": "Search a text…"
   },
   "errors": {
     "network": "Cannot reach the server.",
@@ -289,6 +304,197 @@
     "serial_rule": {
       "invalid_regex": "The pattern is not valid.",
       "missing_model_group": "The pattern must contain (?<model>…)."
+    },
+    "not_enough_stock": "Not enough stock for part {{part}} (in stock: {{stock}}).",
+    "photo_too_large": "This photo is too large.",
+    "wrong_pin": "The current PIN is wrong.",
+    "weak_pin": "This PIN is too easy to guess. Choose another one."
+  },
+  "pin": {
+    "title": "Change my PIN",
+    "current": "Current PIN",
+    "new": "New PIN",
+    "again": "New PIN again",
+    "rules": "4 to 8 digits — not 1234, 0000 or similar",
+    "mismatch": "The two new PINs are different.",
+    "changed": "PIN changed",
+    "weakTitle": "Your PIN is too easy to guess",
+    "weakText": "Anyone could sign in as you. Please choose a new PIN now."
+  },
+  "parts": {
+    "title": "Spare parts",
+    "used": "Spare parts used (from stock)",
+    "choose": "Choose a part",
+    "inStock": "in stock: {{count}}",
+    "low": "Low stock",
+    "addLine": "Add a spare part",
+    "number": "Part number",
+    "stock": "Stock",
+    "min": "Minimum stock",
+    "lowTitle": "Spare parts to order: {{count}}",
+    "search": "Search a part number or name",
+    "all": "All",
+    "updateStock": "Update stock",
+    "movements": "History",
+    "adminHint": "Add or edit parts in Settings → Spare parts.",
+    "current": "Stock now: {{count}}",
+    "received": "Received",
+    "counted": "Inventory count",
+    "receivedQty": "Quantity received",
+    "countedQty": "Quantity counted on the shelf",
+    "notePlaceholder": "e.g. delivery note number",
+    "reason": {
+      "used": "Used in a repair",
+      "received": "Received",
+      "count": "Inventory count"
+    }
+  },
+  "photos": {
+    "title": "Photos",
+    "add": "Add photos",
+    "none": "No photos",
+    "save": "Save photos"
+  },
+  "tag": {
+    "title": "TO REPAIR",
+    "print": "Print repair tag"
+  },
+  "audit": {
+    "title": "Change log",
+    "text": "Everything done in the app: who, what and when. Nothing can be removed from this log.",
+    "allTypes": "All actions",
+    "everyone": "Everyone",
+    "what": "Action",
+    "details": "Details",
+    "more": "Show more",
+    "action": {
+      "create": "added",
+      "update": "changed"
+    },
+    "type": {
+      "unit_created": "New unit",
+      "test_passed": "Test passed",
+      "test_failed": "Test failed",
+      "ticket_opened": "Repair opened",
+      "status_changed": "Repair status",
+      "assigned": "Repair given to",
+      "diagnosis_added": "Fault found",
+      "repair_action_added": "Repair logged",
+      "retest_failed": "Failed retest",
+      "ticket_closed": "Repair closed",
+      "scrapped": "Scrapped",
+      "photo_added": "Photo added",
+      "stock_changed": "Stock changed",
+      "admin_change": "Settings: list changed",
+      "settings_changed": "General settings changed",
+      "translation_changed": "Screen text changed",
+      "pin_changed": "PIN changed"
+    },
+    "entity": {
+      "models": "Model",
+      "parts": "Spare part",
+      "colors": "Color",
+      "serialRules": "Serial number rule",
+      "defectCodes": "Defect code",
+      "checklistItems": "Checklist item",
+      "components": "Machine part",
+      "actionTypes": "Repair action",
+      "categories": "Product type",
+      "users": "Person",
+      "stations": "Station"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "excel": "Export to Excel",
+    "print": "Print / PDF",
+    "from": "From",
+    "to": "To",
+    "period": "From {{from}} to {{to}}",
+    "range": {
+      "today": "Today",
+      "week": "7 days",
+      "month": "30 days",
+      "thisMonth": "This month",
+      "custom": "Choose dates"
+    },
+    "retestFailRate": "Failed again after repair",
+    "avgRepair": "Average time in repair",
+    "avgHandsOn": "Average work time per repair",
+    "avgWaitRetest": "Average wait for retest",
+    "byDay": "By day",
+    "byModel": "By model",
+    "byColor": "By color",
+    "defects": "Defects (Pareto)",
+    "components": "What was repaired",
+    "partsUsed": "Spare parts used",
+    "repairmen": "Repairmen",
+    "testers": "Quality testers",
+    "repeat": "Units repaired more than once",
+    "retestFails": "Failed retests",
+    "count": "Count",
+    "quantity": "Quantity",
+    "cumulative": "Cumulative %",
+    "summary": "Summary",
+    "indicator": "Indicator",
+    "value": "Value",
+    "date": "Date",
+    "by": "By"
+  },
+  "help": {
+    "title": "Help",
+    "intro": "Quick steps for your work. Ask your supervisor if something is not clear.",
+    "rulesTitle": "Rules the app always applies",
+    "rules": {
+      "r1": "Only the test room can pass or fail a unit.",
+      "r2": "Nobody can pass a unit they repaired themselves.",
+      "r3": "A repair goes back to the test room only after at least one repair is logged.",
+      "r4": "Nothing is ever deleted: every test and repair stays in the history.",
+      "r5": "The PC signs you out after a few minutes without activity. Always sign out when you leave."
+    },
+    "tester": {
+      "title": "Test room",
+      "s1": "Sign in with your employee ID and PIN.",
+      "s2": "Scan the serial number of the unit. Model and color appear by themselves (or choose them).",
+      "s3": "Test the unit. Mark with ✗ every check that fails. Type the measured values.",
+      "s4": "All good: press PASS.",
+      "s5": "Problem: press FAIL, choose the defect, add a note and photos.",
+      "s6": "Print the repair tag and stick it on the unit, then send it to the repair area.",
+      "s7": "Units back from repair appear in “Coming back from repair”. Scan and test them again."
+    },
+    "repairman": {
+      "title": "Repair",
+      "s1": "Sign in. Units that failed again are at the top, in red: do them first.",
+      "s2": "Take a new unit with “Take it”, or scan its serial number / repair tag.",
+      "s3": "Read what the test room found (defect, failed checks, photos).",
+      "s4": "Log the fault you actually found.",
+      "s5": "Log each repair: part of the machine, what you did, spare parts from stock, time.",
+      "s6": "No spare part? Press “Waiting for parts”, then “Resume” when it arrives.",
+      "s7": "Finished: press “Send back to test room”. Only the test room can pass the unit."
+    },
+    "supervisor": {
+      "title": "Supervisor",
+      "s1": "Repair screen: see all open repairs, give a repair to another repairman.",
+      "s2": "Red alert = a unit failed the retest too many times: check it and decide (repair or scrap).",
+      "s3": "Reports: first-pass yield, defects, repair times, people. Export to Excel or print.",
+      "s4": "Spare parts: record deliveries and inventory counts; watch low-stock alerts.",
+      "s5": "Units: search any serial number to see its full history, print it or scrap the unit.",
+      "s6": "Change log (user menu): who did what and when."
+    },
+    "admin": {
+      "title": "Admin",
+      "s1": "First: change the admin PIN (user menu → Change my PIN).",
+      "s2": "Settings → People: add testers, repairmen and supervisors.",
+      "s3": "Settings → Models and Colors: add your products and their codes in the serial number.",
+      "s4": "Settings → Serial number: set the rule, test it with a real serial.",
+      "s5": "Check defect codes, checklist, machine parts, spare parts and their translations.",
+      "s6": "Screen texts: change any wording in French, Arabic or English."
+    },
+    "line": {
+      "title": "Production line screen",
+      "s1": "The big screen shows today's results live: no need to sign in.",
+      "s2": "Green = on target, orange = slightly below, red = below target.",
+      "s3": "Top defects tell the line what to fix first."
     }
   }
 }

@@ -5,6 +5,7 @@ export type Config = {
   dataDir?: string;
   demo: boolean;
   webDist?: string;
+  uploadDir: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -16,5 +17,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     dataDir: env.DATA_DIR ?? './data/pglite',
     demo: (env.SEED_DEMO ?? (env.DATABASE_URL ? 'false' : 'true')) === 'true',
     webDist: env.WEB_DIST,
+    // Photos are stored here. Back this folder up together with the database.
+    uploadDir: env.UPLOAD_DIR ?? './data/uploads',
   };
 }

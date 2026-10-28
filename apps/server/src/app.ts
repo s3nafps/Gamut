@@ -5,6 +5,10 @@ import {
   AppError,
   assignSchema,
   can,
+  changePinSchema,
+  isWeakPin,
+  photoUploadSchema,
+  stockChangeSchema,
   diagnosisSchema,
   loginSchema,
   recordTestSchema,
@@ -12,15 +16,17 @@ import {
   scrapSchema,
   type Permission,
 } from '@gamut/core';
-import { asc, eq, lt } from 'drizzle-orm';
+import { and, asc, eq, lt } from 'drizzle-orm';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { ZodError, z } from 'zod';
-import { newToken, verifyPin } from './auth';
+import { hashPin, newToken, verifyPin } from './auth';
 import type { Db } from './db/client';
 import * as s from './db/schema';
 import { LiveHub } from './live';
 import { ENTITIES, createEntity, settingsSchema, testSerialPattern, updateEntity } from './routes/admin';
 import * as flow from './services/flow';
+import { readPhoto, savePhoto } from './services/photos';
+import { buildReport } from './services/reports';
 import * as q from './services/queries';
 import { getSettings } from './services/settings';
 
@@ -42,8 +48,9 @@ const publicUser = (u: User) => ({
   active: u.active,
 });
 
-export async function buildApp(opts: { db: Db; webDist?: string; logger?: boolean }) {
+export async function buildApp(opts: { db: Db; webDist?: string; logger?: boolean; uploadDir?: string }) {
   const { db } = opts;
+  const uploadDir = resolve(opts.uploadDir ?? './data/uploads');
   const app = Fastify({ logger: opts.logger ?? false, disableRequestLogging: true, bodyLimit: 1024 * 1024 });
   const live = new LiveHub();
   app.addHook('onClose', async () => live.close());
@@ -116,7 +123,8 @@ export async function buildApp(opts: { db: Db; webDist?: string; logger?: boolea
     await db.insert(s.sessions).values({ token, userId: u.id });
     // Housekeeping: drop expired sessions.
     await db.delete(s.sessions).where(lt(s.sessions.lastSeenAt, new Date(Date.now() - SESSION_HOURS * 3600_000)));
-    return { token, user: publicUser(u) };
+    // weakPin: the screen asks the person to choose a better PIN (e.g. admin still on 1234).
+    return { token, user: publicUser(u), weakPin: isWeakPin(body.data.pin) };
   });
 
   // ---------- signed in ----------
@@ -128,6 +136,15 @@ export async function buildApp(opts: { db: Db; webDist?: string; logger?: boolea
 
   app.get('/api/me', { preHandler: requireAuth() }, async (req) => publicUser(req.user!));
 
+  app.put('/api/me/pin', { preHandler: requireAuth() }, async (req) => {
+    const { currentPin, newPin } = changePinSchema.parse(req.body);
+    if (!verifyPin(currentPin, req.user!.pinHash)) throw new AppError('wrong_pin', 400);
+    if (isWeakPin(newPin)) throw new AppError('weak_pin', 400);
+    await db.update(s.users).set({ pinHash: hashPin(newPin) }).where(eq(s.users.id, req.user!.id));
+    await db.insert(s.events).values({ type: 'pin_changed', userId: req.user!.id });
+    return { ok: true };
+  });
+
   app.put('/api/me/language', { preHandler: requireAuth() }, async (req) => {
     const { language } = z.object({ language: z.enum(['fr', 'ar', 'en']) }).parse(req.body);
     await db.update(s.users).set({ language }).where(eq(s.users.id, req.user!.id));
@@ -136,7 +153,7 @@ export async function buildApp(opts: { db: Db; webDist?: string; logger?: boolea
 
   /** All lists the screens need to show names (includes inactive rows for history). */
   app.get('/api/catalog', { preHandler: requireAuth() }, async () => {
-    const [categories, models, colors, serialRules, defectCodes, components, actionTypes, checklistItems, stations, users, settings] =
+    const [categories, models, colors, serialRules, defectCodes, components, actionTypes, checklistItems, stations, users, settings, parts] =
       await Promise.all([
         db.select().from(s.categories).orderBy(asc(s.categories.id)),
         db.select().from(s.models).orderBy(asc(s.models.code)),
@@ -149,6 +166,7 @@ export async function buildApp(opts: { db: Db; webDist?: string; logger?: boolea
         db.select().from(s.stations).orderBy(asc(s.stations.id)),
         db.select().from(s.users).orderBy(asc(s.users.fullName)),
         getSettings(db),
+        db.select().from(s.parts).orderBy(asc(s.parts.partNumber)),
       ]);
     return {
       categories,
@@ -162,6 +180,7 @@ export async function buildApp(opts: { db: Db; webDist?: string; logger?: boolea
       stations,
       users: users.map(publicUser),
       settings,
+      parts,
     };
   });
 
@@ -243,6 +262,75 @@ export async function buildApp(opts: { db: Db; webDist?: string; logger?: boolea
     return q.personActivity(db, userId, from, to);
   });
 
+  // ---------- spare parts ----------
+  app.post('/api/parts/:id/stock', { preHandler: requireAuth('supervise') }, async (req) => {
+    const part = await flow.changeStock(db, idParam(req), stockChangeSchema.parse(req.body), actor(req));
+    changed('parts');
+    return part;
+  });
+
+  app.get('/api/parts/:id/movements', { preHandler: requireAuth('supervise') }, async (req) =>
+    db.select().from(s.stockMovements).where(eq(s.stockMovements.partId, idParam(req))).orderBy(asc(s.stockMovements.id)),
+  );
+
+  // ---------- photos ----------
+  app.post('/api/units/:id/photos', { preHandler: requireAuth(), bodyLimit: 10 * 1024 * 1024 }, async (req) => {
+    if (!can(req.user!.roles, 'test') && !can(req.user!.roles, 'repair')) throw new AppError('forbidden', 403);
+    const row = await savePhoto(db, uploadDir, idParam(req), photoUploadSchema.parse(req.body), req.user!.id);
+    changed('photos');
+    return row;
+  });
+
+  app.get('/api/photos/:id', { preHandler: requireAuth() }, async (req, reply) => {
+    const { row, data } = await readPhoto(db, uploadDir, idParam(req));
+    return reply.header('Content-Type', row.mime).header('Cache-Control', 'private, max-age=86400').send(data);
+  });
+
+  // ---------- reports & change log ----------
+  const rangeQuery = z.object({ from: z.coerce.date(), to: z.coerce.date() });
+  app.get('/api/reports', { preHandler: requireAuth('supervise') }, async (req) => {
+    const { from, to } = rangeQuery.parse(req.query);
+    return buildReport(db, from, to);
+  });
+
+  app.get('/api/audit', { preHandler: requireAuth('supervise') }, async (req) => {
+    const qy = rangeQuery
+      .extend({
+        type: z.string().max(40).optional(),
+        userId: z.coerce.number().int().positive().optional(),
+        beforeId: z.coerce.number().int().positive().optional(),
+        limit: z.coerce.number().int().min(1).max(500).default(100),
+      })
+      .parse(req.query);
+    return q.auditLog(db, qy);
+  });
+
+  // ---------- screen texts (admins can change any wording, in any language) ----------
+  app.get('/api/public/translations', async () => {
+    const rows = await db.select().from(s.translations);
+    const out: Record<string, Record<string, string>> = { fr: {}, ar: {}, en: {} };
+    for (const r of rows) (out[r.lang] ??= {})[r.key] = r.value;
+    return out;
+  });
+
+  app.put('/api/admin/translations', { preHandler: requireAuth('admin') }, async (req) => {
+    const { lang, key, value } = z
+      .object({ lang: z.enum(['fr', 'ar', 'en']), key: z.string().min(1).max(200), value: z.string().max(1000) })
+      .parse(req.body);
+    if (value.trim() === '') {
+      // Empty = go back to the built-in text.
+      await db.delete(s.translations).where(and(eq(s.translations.lang, lang), eq(s.translations.key, key)));
+    } else {
+      await db
+        .insert(s.translations)
+        .values({ lang, key, value })
+        .onConflictDoUpdate({ target: [s.translations.lang, s.translations.key], set: { value, updatedAt: new Date() } });
+    }
+    await db.insert(s.events).values({ type: 'translation_changed', userId: req.user!.id, data: { lang, key, value } });
+    changed('translations');
+    return { ok: true };
+  });
+
   // ---------- admin ----------
   app.get('/api/admin/:entity', { preHandler: requireAuth('admin') }, async (req) => {
     const ent = ENTITIES[(req.params as { entity: string }).entity];
@@ -255,14 +343,14 @@ export async function buildApp(opts: { db: Db; webDist?: string; logger?: boolea
   });
 
   app.post('/api/admin/:entity', { preHandler: requireAuth('admin') }, async (req) => {
-    const row = await createEntity(db, (req.params as { entity: string }).entity, req.body);
+    const row = await createEntity(db, (req.params as { entity: string }).entity, req.body, req.user!.id);
     changed('catalog');
     const { pinHash: _drop, ...rest } = row as Record<string, unknown>;
     return rest;
   });
 
   app.put('/api/admin/:entity/:id', { preHandler: requireAuth('admin') }, async (req) => {
-    const row = await updateEntity(db, (req.params as { entity: string }).entity, idParam(req), req.body);
+    const row = await updateEntity(db, (req.params as { entity: string }).entity, idParam(req), req.body, req.user!.id);
     changed('catalog');
     const { pinHash: _drop, ...rest } = row as Record<string, unknown>;
     return rest;
@@ -274,6 +362,7 @@ export async function buildApp(opts: { db: Db; webDist?: string; logger?: boolea
       for (const [key, value] of Object.entries(values)) {
         await tx.insert(s.settings).values({ key, value }).onConflictDoUpdate({ target: s.settings.key, set: { value } });
       }
+      await tx.insert(s.events).values({ type: 'settings_changed', userId: req.user!.id, data: values });
     });
     changed('catalog');
     return getSettings(db);

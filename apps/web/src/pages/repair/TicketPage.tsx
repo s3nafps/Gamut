@@ -16,11 +16,14 @@ import {
   Title,
 } from '@mantine/core';
 import { tr } from '@gamut/core';
-import { IconAlertTriangle, IconArrowLeft, IconHandGrab, IconPackage, IconPlayerPlay, IconSend, IconTrash } from '@tabler/icons-react';
+import { IconAlertTriangle, IconArrowLeft, IconHandGrab, IconPackage, IconPlayerPlay, IconPrinter, IconSend, IconTrash } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { PartsPicker, type PartLine } from '../../components/PartsPicker';
+import { PhotoGallery, PhotoPicker, uploadPhotos, type PendingPhoto } from '../../components/Photos';
+import { printRepairTag } from '../../components/RepairTag';
 import { TicketStatusBadge } from '../../components/StatusBadge';
 import { UnitTimeline } from '../../components/UnitTimeline';
 import { get, post } from '../../lib/api';
@@ -29,7 +32,7 @@ import { notifyError, notifyOk } from '../../lib/errors';
 import { fmtDateTime } from '../../lib/format';
 import { useSession } from '../../lib/session';
 import { getStation } from '../../lib/station';
-import type { Diagnosis, EventRow, RepairAction, Test, Ticket, Unit } from '../../lib/types';
+import type { Diagnosis, EventRow, Photo, RepairAction, Test, Ticket, Unit } from '../../lib/types';
 
 type Detail = {
   ticket: Ticket;
@@ -40,6 +43,7 @@ type Detail = {
   events: EventRow[];
   otherTickets: Ticket[];
   otherActions: RepairAction[];
+  photos: Photo[];
 };
 
 export function TicketPage() {
@@ -61,6 +65,8 @@ export function TicketPage() {
     parts: '',
     durationMin: '',
   });
+  const [partLines, setPartLines] = useState<PartLine[]>([]);
+  const [newPhotos, setNewPhotos] = useState<PendingPhoto[]>([]);
   const [confirmSend, setConfirmSend] = useState(false);
   const [scrapOpen, setScrapOpen] = useState(false);
   const [scrapReason, setScrapReason] = useState('');
@@ -94,9 +100,20 @@ export function TicketPage() {
           parts: act.parts,
           durationMin: act.durationMin === '' ? null : act.durationMin,
           stationId: station?.id ?? null,
+          partsUsed: partLines.filter((l) => l.partId).map((l) => ({ partId: Number(l.partId), quantity: l.quantity })),
         }),
       t('repair.saved'),
-      () => setAct({ componentId: null, actionTypeId: null, description: '', parts: '', durationMin: '' }),
+      () => {
+        setAct({ componentId: null, actionTypeId: null, description: '', parts: '', durationMin: '' });
+        setPartLines([]);
+      },
+    ),
+  );
+  const savePhotos = useMutation(
+    run(
+      () => uploadPhotos(data!.unit.id, newPhotos, { ticketId: data!.ticket.id }),
+      t('repair.saved'),
+      () => setNewPhotos([]),
     ),
   );
   const send = useMutation(run(() => post(`/api/tickets/${id}/send-to-test`), t('repair.sentMsg'), () => navigate('/repair')));
@@ -122,9 +139,30 @@ export function TicketPage() {
         <Button component={Link} to="/repair" variant="subtle" leftSection={<IconArrowLeft className="flip-rtl" />}>
           {t('common.back')}
         </Button>
-        <Button component={Link} to={`/units/${encodeURIComponent(unit.serial)}`} variant="light">
-          {t('repair.fullHistory')}
-        </Button>
+        <Group gap="xs">
+          <Button
+            variant="light"
+            color="dark"
+            leftSection={<IconPrinter size={18} />}
+            onClick={() =>
+              printRepairTag({
+                serial: unit.serial,
+                ticketNumber: ticket.number,
+                model: n.model(unit.modelId),
+                color: n.color(unit.colorId),
+                defect: n.defect(lastFail?.defectCodeId),
+                date: fmtDateTime(ticket.openedAt, n.lang),
+                title: t('tag.title'),
+                dir: n.lang === 'ar' ? 'rtl' : 'ltr',
+              })
+            }
+          >
+            {t('tag.print')}
+          </Button>
+          <Button component={Link} to={`/units/${encodeURIComponent(unit.serial)}`} variant="light">
+            {t('repair.fullHistory')}
+          </Button>
+        </Group>
       </Group>
 
       <Card withBorder padding="lg">
@@ -233,11 +271,17 @@ export function TicketPage() {
                     <Select size="lg" label={t('fields.actionType')} data={actionTypes} value={act.actionTypeId} onChange={(v) => setAct({ ...act, actionTypeId: v })} />
                   </SimpleGrid>
                   <Textarea size="md" label={t('fields.description')} autosize minRows={2} value={act.description} onChange={(e) => setAct({ ...act, description: e.currentTarget.value })} />
+                  <PartsPicker categoryId={categoryId} componentId={act.componentId ? Number(act.componentId) : null} value={partLines} onChange={setPartLines} />
                   <SimpleGrid cols={{ base: 1, sm: 2 }}>
-                    <TextInput size="md" label={t('repair.parts')} placeholder={t('repair.partsHint')} value={act.parts} onChange={(e) => setAct({ ...act, parts: e.currentTarget.value })} />
+                    <TextInput size="md" label={t('repair.otherParts')} placeholder={t('repair.partsHint')} value={act.parts} onChange={(e) => setAct({ ...act, parts: e.currentTarget.value })} />
                     <NumberInput size="md" label={t('fields.durationMin')} min={0} max={1440} value={act.durationMin} onChange={(v) => setAct({ ...act, durationMin: typeof v === 'number' ? v : '' })} />
                   </SimpleGrid>
-                  <Button size="lg" disabled={!act.componentId || !act.actionTypeId} loading={addAct.isPending} onClick={() => addAct.mutate()}>
+                  <Button
+                    size="lg"
+                    disabled={!act.componentId || !act.actionTypeId || partLines.some((l) => !l.partId)}
+                    loading={addAct.isPending}
+                    onClick={() => addAct.mutate()}
+                  >
                     {t('repair.saveAction')}
                   </Button>
                 </Stack>
@@ -261,6 +305,24 @@ export function TicketPage() {
           </Stack>
         </Grid.Col>
         <Grid.Col span={{ base: 12, lg: 5 }}>
+          <Card withBorder padding="md" mb="md">
+            <Title order={4} mb="sm">
+              {t('photos.title')}
+            </Title>
+            <Stack gap="sm">
+              <PhotoGallery photos={data.photos} />
+              {(can('repair') || can('test')) && !['closed', 'scrapped'].includes(ticket.status) && (
+                <>
+                  <PhotoPicker value={newPhotos} onChange={setNewPhotos} />
+                  {newPhotos.length > 0 && (
+                    <Button loading={savePhotos.isPending} onClick={() => savePhotos.mutate()}>
+                      {t('photos.save')}
+                    </Button>
+                  )}
+                </>
+              )}
+            </Stack>
+          </Card>
           <Card withBorder padding="md">
             <Title order={4} mb="sm">
               {t('repair.thisRepair')}

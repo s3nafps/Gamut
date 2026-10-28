@@ -2,7 +2,7 @@ import type { LocalizedName } from '@gamut/core';
 
 export type User = { id: number; employeeId: string; fullName: string; roles: string[]; language: string; active: boolean };
 export type Category = { id: number; code: string; name: LocalizedName; active: boolean };
-export type Model = { id: number; categoryId: number; code: string; name: string; brand: string; active: boolean };
+export type Model = { id: number; categoryId: number; code: string; name: string; brand: string; fpyTarget: number | null; active: boolean };
 export type Color = { id: number; code: string; name: LocalizedName; active: boolean };
 export type DefectCode = { id: number; categoryId: number; code: string; name: LocalizedName; active: boolean };
 export type Component = { id: number; categoryId: number; name: LocalizedName; active: boolean };
@@ -21,6 +21,17 @@ export type ChecklistItem = {
 export type StationRow = { id: number; name: string; type: 'quality' | 'repair' | 'display'; language: string; active: boolean };
 export type SerialRule = { id: number; categoryId: number; label: string; pattern: string; example: string; priority: number; active: boolean };
 export type Settings = { fpyTarget: number; maxRetestFails: number; idleLockMinutes: number };
+export type Part = {
+  id: number;
+  partNumber: string;
+  name: LocalizedName;
+  categoryId: number | null;
+  componentId: number | null;
+  stockQty: number;
+  minStock: number;
+  active: boolean;
+};
+export type Photo = { id: number; unitId: number; ticketId: number | null; testId: number | null; mime: string; size: number; caption: string; uploadedBy: number; createdAt: string };
 
 export type Catalog = {
   categories: Category[];
@@ -34,6 +45,7 @@ export type Catalog = {
   stations: StationRow[];
   users: User[];
   settings: Settings;
+  parts: Part[];
 };
 
 export type Unit = {
@@ -91,6 +103,7 @@ export type RepairAction = {
   parts: string;
   durationMin: number | null;
   createdAt: string;
+  partsUsed?: Array<{ partId: number; quantity: number }>;
 };
 export type EventRow = {
   id: number;
@@ -103,4 +116,4 @@ export type EventRow = {
   data: Record<string, any>;
   createdAt: string;
 };
-export type UnitHistory = { unit: Unit; tests: Test[]; tickets: Ticket[]; actions: RepairAction[]; diagnoses: Diagnosis[]; events: EventRow[] };
+export type UnitHistory = { unit: Unit; tests: Test[]; tickets: Ticket[]; actions: RepairAction[]; diagnoses: Diagnosis[]; events: EventRow[]; photos: Photo[] };

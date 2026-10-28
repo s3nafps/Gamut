@@ -5,6 +5,10 @@ import { AppLayout } from './components/AppLayout';
 import { useSession } from './lib/session';
 import { getStation } from './lib/station';
 import { AdminPage } from './pages/admin/AdminPage';
+import { AuditPage } from './pages/audit/AuditPage';
+import { HelpPage } from './pages/help/HelpPage';
+import { PartsPage } from './pages/parts/PartsPage';
+import { ReportsPage } from './pages/reports/ReportsPage';
 import { LineDashboard } from './pages/line/LineDashboard';
 import { Login } from './pages/Login';
 import { PersonPage } from './pages/people/PersonPage';
@@ -57,6 +61,10 @@ export function App() {
       <Route path="/units" element={<Protected><UnitsPage /></Protected>} />
       <Route path="/units/:serial" element={<Protected><UnitPage /></Protected>} />
       <Route path="/people/:id" element={<Protected><PersonPage /></Protected>} />
+      <Route path="/parts" element={<Protected><Gate allow={can('repair') || can('supervise')}><PartsPage /></Gate></Protected>} />
+      <Route path="/reports" element={<Protected><Gate allow={can('supervise')}><ReportsPage /></Gate></Protected>} />
+      <Route path="/audit" element={<Protected><Gate allow={can('supervise')}><AuditPage /></Gate></Protected>} />
+      <Route path="/help" element={<Protected><HelpPage /></Protected>} />
       <Route path="/admin" element={<Protected><Gate allow={can('admin')}><AdminPage /></Gate></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

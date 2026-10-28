@@ -17,17 +17,19 @@ import {
   Title,
 } from '@mantine/core';
 import { tr } from '@gamut/core';
-import { IconAlertTriangle, IconCheck, IconRepeat, IconX } from '@tabler/icons-react';
+import { IconAlertTriangle, IconCheck, IconPrinter, IconRepeat, IconX } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { PhotoPicker, uploadPhotos, type PendingPhoto } from '../../components/Photos';
+import { printRepairTag, type TagInfo } from '../../components/RepairTag';
 import { ResultBadge } from '../../components/StatusBadge';
 import { ScanInput } from '../../components/ScanInput';
 import { get, post } from '../../lib/api';
 import { useNames } from '../../lib/catalog';
 import { errorText, notifyError, notifyOk } from '../../lib/errors';
-import { fmtMinutes, fmtTime, sinceMinutes } from '../../lib/format';
+import { fmtDateTime, fmtMinutes, fmtTime, sinceMinutes } from '../../lib/format';
 import { getStation } from '../../lib/station';
 import type { ChecklistItem, RepairAction, Ticket, Unit } from '../../lib/types';
 
@@ -78,6 +80,8 @@ export function QualityPage() {
   const [defectId, setDefectId] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [scanError, setScanError] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<PendingPhoto[]>([]);
+  const [lastTag, setLastTag] = useState<TagInfo | null>(null);
 
   const summary = useQuery({ queryKey: ['quality-summary'], queryFn: () => get('/api/quality/summary'), refetchInterval: 30_000 });
 
@@ -93,6 +97,7 @@ export function QualityPage() {
     setChecks({});
     setDefectId(null);
     setNotes('');
+    setPhotos([]);
     setFailOpen(false);
     setTimeout(() => scanRef.current?.focus(), 50);
   };
@@ -103,6 +108,7 @@ export function QualityPage() {
       setScanError(null);
       const last = readLast();
       setLookup(res);
+      setLastTag(null);
       setModelId(res.suggestedModelId ?? (res.unknownModelCode ? null : (last.modelId ?? null)));
       setColorId(res.suggestedColorId ?? (res.unknownColorCode ? null : (last.colorId ?? null)));
       setChecks({});
@@ -136,7 +142,21 @@ export function QualityPage() {
         notes,
       });
     },
-    onSuccess: (res: any, result) => {
+    onSuccess: async (res: any, result) => {
+      if (result === 'fail') {
+        // Photos of the defect go with this test and its repair ticket.
+        if (photos.length) await uploadPhotos(res.unitId, photos, { testId: res.test.id, ticketId: res.ticket?.id }).catch((e) => notifyError(e, t));
+        setLastTag({
+          serial: res.serial,
+          ticketNumber: res.ticket?.number ?? '',
+          model: lookup?.unit ? n.model(lookup.unit.modelId) : n.model(modelId),
+          color: lookup?.unit ? n.color(lookup.unit.colorId) : n.color(colorId),
+          defect: n.defect(defectId),
+          date: fmtDateTime(new Date().toISOString(), n.lang),
+          title: t('tag.title'),
+          dir: n.lang === 'ar' ? 'rtl' : 'ltr',
+        });
+      }
       if (!lookup?.unit) {
         try {
           localStorage.setItem(LAST_KEY, JSON.stringify({ modelId, colorId }));
@@ -172,6 +192,16 @@ export function QualityPage() {
         <Stack gap="md">
           <Title order={2}>{t('quality.title')}</Title>
           <ScanInput ref={scanRef} onScan={(v) => scan.mutate(v)} disabled={scan.isPending || record.isPending} />
+          {lastTag && !lookup && (
+            <Alert color="red" variant="light" icon={<IconX />} withCloseButton onClose={() => setLastTag(null)}>
+              <Group justify="space-between">
+                <Text>{t('quality.failedMsg', { serial: lastTag.serial, number: lastTag.ticketNumber })}</Text>
+                <Button size="md" variant="white" color="dark" leftSection={<IconPrinter />} onClick={() => printRepairTag(lastTag)}>
+                  {t('tag.print')}
+                </Button>
+              </Group>
+            </Alert>
+          )}
           {scanError && (
             <Alert color="red" icon={<IconAlertTriangle />} title={t('common.error')}>
               {scanError}
@@ -449,6 +479,7 @@ export function QualityPage() {
             comboboxProps={{ withinPortal: true }}
           />
           <Textarea size="md" label={t('fields.notes')} value={notes} onChange={(e) => setNotes(e.currentTarget.value)} autosize minRows={2} />
+          <PhotoPicker value={photos} onChange={setPhotos} />
           <Button size="xl" color="red" disabled={!defectId} loading={record.isPending} onClick={() => record.mutate('fail')}>
             {t('quality.confirmFail')}
           </Button>

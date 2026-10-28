@@ -34,5 +34,12 @@ export function useNames() {
     check: (id: number | null | undefined) => tr(find(c?.checklistItems, id)?.name, lang) || '—',
     user: (id: number | null | undefined) => find(c?.users, id)?.fullName ?? '—',
     station: (id: number | null | undefined) => find(c?.stations, id)?.name ?? '—',
+    part: (id: number | null | undefined) => {
+      const p = find(c?.parts, id);
+      return p ? `${p.partNumber} — ${tr(p.name, lang)}` : '—';
+    },
   };
 }
+
+/** Spare parts at or below their minimum stock. */
+export const isLowStock = (p: { stockQty: number; minStock: number; active: boolean }) => p.active && p.minStock > 0 && p.stockQty <= p.minStock;

@@ -28,6 +28,9 @@ services:
       DATABASE_URL: postgres://gamut:${DB_PASSWORD}@db:5432/gamut
       TZ: ${TZ}
       SEED_DEMO: ${SEED_DEMO:-false}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
     ports:
       - "${PORT:-8080}:8080"
 
@@ -47,8 +50,10 @@ services:
       KEEP_DAYS: ${KEEP_DAYS:-30}
     volumes:
       - ${BACKUP_DIR:-./backups}:/backups
+      - uploads:/uploads:ro
       - ./backup/backup.sh:/backup.sh:ro
     entrypoint: ["/bin/sh", "/backup.sh"]
 
 volumes:
   db-data:
+  uploads:

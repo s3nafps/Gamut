@@ -10,3 +10,4 @@ docker compose stop app
 docker compose exec -T db pg_restore -U gamut -d gamut --clean --if-exists < "$FILE"
 docker compose start app
 echo "Restore done."
+echo "Photos: to restore them too, run:  docker compose run --rm -v \"\$PWD/backups:/backups\" app sh -c 'tar -xzf /backups/photos-YYYY-MM-DD.tar.gz -C /data/uploads'"

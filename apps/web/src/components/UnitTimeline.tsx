@@ -105,9 +105,14 @@ export function UnitTimeline({
             {a.durationMin != null ? ` · ${t('time.minutes', { count: a.durationMin })}` : ''}
           </Text>
           {a.description && <Text size="sm">{a.description}</Text>}
+          {(a.partsUsed?.length ?? 0) > 0 && (
+            <Text size="sm">
+              {t('parts.used')}: {a.partsUsed!.map((p) => `${n.part(p.partId)} ×${p.quantity}`).join(', ')}
+            </Text>
+          )}
           {a.parts && (
             <Text size="sm">
-              {t('repair.parts')}: {a.parts}
+              {t('repair.otherParts')}: {a.parts}
             </Text>
           )}
         </Stack>

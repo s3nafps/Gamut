@@ -14,8 +14,11 @@ each unit.
 - Products are **added manually** (they are not in the ERP); model and color are read from the
   serial number once its format is set up
 - Starts with **washing machines**; other product types are added from Settings, no code change
+- Photos of defects, spare parts with stock and low-stock alerts, QR repair tags
+- Reports with Excel export and print / PDF, change log, editable screen texts, in-app help
+- Windows installer for the PCs, built automatically on GitHub (Actions → *Desktop installer*)
 
-**Get started:** [docs/SETUP.md](docs/SETUP.md) · **Full plan:** [docs/PLAN.md](docs/PLAN.md)
+**Get started:** [docs/SETUP.md](docs/SETUP.md) · **Training guides:** [FR](docs/guide/fr.md) · [AR](docs/guide/ar.md) · [EN](docs/guide/en.md) · **Full plan:** [docs/PLAN.md](docs/PLAN.md)
 
 ```bash
 npm ci

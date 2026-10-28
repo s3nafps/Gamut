@@ -28,7 +28,8 @@ Updating the server updates every PC at once: the screens come from the server.
 This starts three containers:
 - `db` — PostgreSQL 16 (its port is not opened to the network)
 - `app` — Gamut server on port 8080
-- `backup` — a backup at start, then one every night at `BACKUP_HOUR`, kept `KEEP_DAYS` days, in `BACKUP_DIR`
+- `backup` — a backup of the database **and the photos** at start, then every night at `BACKUP_HOUR`,
+  kept `KEEP_DAYS` days, in `BACKUP_DIR`
 
 **Restore a backup** (erases current data): `sh backup/restore.sh backups/gamut-YYYY-MM-DD_HHMM.dump`
 
@@ -48,7 +49,7 @@ This starts three containers:
    export DATABASE_URL=postgres://gamut:PASSWORD@localhost:5432/gamut (Linux)
    npm start
    ```
-4. Back up the database every night with `pg_dump -Fc`.
+4. Back up the database every night with `pg_dump -Fc`, and the photos folder (`UPLOAD_DIR`).
 
 ### Settings (environment variables)
 
@@ -57,7 +58,8 @@ This starts three containers:
 | `DATABASE_URL` | PostgreSQL connection | empty = built-in test database in `./data` |
 | `PORT` | Port the PCs use | `8080` |
 | `TZ` | Factory time zone (“today” starts at midnight here) | system |
-| `SEED_DEMO` | `true` = fill a **new** database with example models and users | `false` with a real database |
+| `UPLOAD_DIR` | Folder where photos are stored (back it up!) | `./data/uploads` |
+| `SEED_DEMO` | `true` = fill a **new** database with example models, users and a week of example activity | `false` with a real database |
 
 ### Network (for IT)
 - Give the server a **fixed address** (static IP or a name like `gamut.usine.local`).
@@ -68,12 +70,13 @@ This starts three containers:
 
 ## 2. Install the desktop app on each PC
 
-1. Build the installer once (on any Windows PC with Node.js 22):
-   ```bash
-   npm ci
-   npm run dist:win -w @gamut/desktop
-   ```
-   The installer appears in `apps/desktop/release/`.
+1. Get the installer `Gamut-Repair-Setup-x.y.z.exe`:
+   - **Easiest:** on GitHub → *Actions* → *Desktop installer (Windows)* → latest run → *Artifacts*.
+     (Push a tag like `v1.0.0` to also publish it as a GitHub Release.)
+   - Or build it yourself on a Windows PC with Node.js 22: `npm ci` then `npm run dist:win -w @gamut/desktop`
+     (the file appears in `apps/desktop/release/`).
+   - The installer is not code-signed: Windows may show “Windows protected your PC” → *More info* → *Run anyway*.
+     Your IT team can sign it with the company certificate to remove that message.
 2. Install it on each PC.
 3. On first start, type the server address (e.g. `http://gamut.usine.local:8080`).
 4. Then choose what this PC is: **Test room**, **Repair 1**, **Repair 2**, or **Line dashboard**.
@@ -88,10 +91,11 @@ signing in. Put it on a TV near the line.
 
 ## 3. First steps after installing
 
-Sign in with **employee ID `admin`, PIN `1234`**, then:
+Sign in with **employee ID `admin`, PIN `1234`**. The app asks you to change this PIN — do it first
+(user menu → **Change my PIN**). Then:
 
-1. **Settings → People:** change the admin PIN right away. Add your quality testers, repairmen and
-   supervisors (employee ID, name, role, language, PIN).
+1. **Settings → People:** add your quality testers, repairmen and supervisors (employee ID, name, role,
+   language, PIN). Easy PINs like 1234 or 1111 trigger a warning until the person changes them.
 2. **Settings → Models:** add your washing machine models by hand. “Code in the serial” = the part of
    the serial number that identifies the model.
 3. **Settings → Colors:** add colors and their code in the serial number.
@@ -100,7 +104,17 @@ Sign in with **employee ID `admin`, PIN `1234`**, then:
    color from a list — the app works without it.*
 5. Check the starter lists (and translations) under **Defect codes**, **Test checklist**,
    **Machine parts**, **Repair actions**. Replace the examples with your real ones.
-6. **Settings → General:** first-pass yield target, alert after N failed retests, auto sign-out time.
+6. **Settings → Spare parts:** add your spare parts with a **minimum stock** (low-stock alert).
+   Supervisors then record deliveries and inventory counts on the **Spare parts** page.
+7. **Settings → General:** first-pass yield target, alert after N failed retests, auto sign-out time.
+   A model can have its own target (Settings → Models).
+8. **Settings → Screen texts:** change any wording on the screens, in each language.
+
+**Training:** print the guide for each station — [French](guide/fr.md) · [Arabic](guide/ar.md) ·
+[English](guide/en.md). The same steps are in the app (user menu → **Help**).
+
+**Repair tags:** the test room and repair screens print a 100 × 60 mm tag with a QR code of the serial
+number. Any printer works; on a label printer (e.g. Zebra), set the paper size to 100 × 60 mm in Windows.
 
 Nothing is ever deleted: to stop using a model, defect, person… switch off **Active**.
 
@@ -114,9 +128,9 @@ No code change needed.
 
 | Role | Screens |
 |---|---|
-| Quality tester | Test room, unit search, own activity |
-| Repairman | Repair, unit search, own activity |
-| Supervisor | Everything above + line dashboard, assign repairs, scrap units, anyone's activity |
+| Quality tester | Test room, unit search, own activity, help |
+| Repairman | Repair, spare parts (view), unit search, own activity, help |
+| Supervisor | Everything above + reports (Excel / PDF), spare parts stock, change log, line dashboard, assign repairs, scrap units, anyone's activity |
 | Admin | Everything + Settings |
 
 Rules the app enforces:
@@ -137,8 +151,8 @@ npm run dev:web        # screens on http://localhost:5173 (hot reload)
 npm run check          # typecheck + translations + tests + build
 ```
 
-Demo accounts (only with demo data): `T001`/1111 tester · `R001`/2222 and `R002`/3333 repairmen ·
-`S001`/4444 supervisor · `admin`/1234. Demo serial rule: `WM8FW2610000123` = model WM8F, color W,
+Demo accounts (only with demo data): `T001`/1357 tester · `R001`/2468 and `R002`/3579 repairmen ·
+`S001`/4680 supervisor · `admin`/1234 (you will be asked to change it). Demo serial rule: `WM8FW2610000123` = model WM8F, color W,
 10/2026.
 
 Tests against a real PostgreSQL: `TEST_DATABASE_URL=postgres://… npm run test -w @gamut/server`

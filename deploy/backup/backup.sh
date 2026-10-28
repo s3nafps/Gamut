@@ -14,7 +14,11 @@ backup() {
     rm -f "$file.tmp"
     echo "$(date) BACKUP FAILED" >&2
   fi
-  find /backups -name 'gamut-*.dump' -mtime +"$KEEP_DAYS" -delete
+  # Photos: one archive per day (photos are never changed, so this is simple and safe).
+  if [ -d /uploads ]; then
+    tar -czf "/backups/photos-$(date +%Y-%m-%d).tar.gz.tmp" -C /uploads . && mv "/backups/photos-$(date +%Y-%m-%d).tar.gz.tmp" "/backups/photos-$(date +%Y-%m-%d).tar.gz"
+  fi
+  find /backups \( -name 'gamut-*.dump' -o -name 'photos-*.tar.gz' \) -mtime +"$KEEP_DAYS" -delete
 }
 
 # One backup at start, then once a day during BACKUP_HOUR (checked every 10 minutes).

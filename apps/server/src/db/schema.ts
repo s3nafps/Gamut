@@ -38,6 +38,8 @@ export const models = pgTable(
     name: text('name').notNull(),
     brand: text('brand').notNull().default(''),
     attributes: jsonb('attributes').$type<Record<string, string>>().notNull().default({}),
+    /** First-pass yield target for this model (%). Empty = use the general target. */
+    fpyTarget: doublePrecision('fpy_target'),
     active: active(),
   },
   (t) => [uniqueIndex('models_category_code').on(t.categoryId, t.code)],
@@ -243,4 +245,76 @@ export const events = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('events_unit').on(t.unitId), index('events_ticket').on(t.ticketId)],
+);
+
+// ---------- Spare parts ----------
+
+export const parts = pgTable('parts', {
+  id: serial('id').primaryKey(),
+  partNumber: text('part_number').notNull().unique(),
+  name: name(),
+  /** Optional: which product type / machine part this spare part belongs to. */
+  categoryId: integer('category_id').references(() => categories.id),
+  componentId: integer('component_id').references(() => components.id),
+  stockQty: integer('stock_qty').notNull().default(0),
+  /** Alert when stock is at or below this level. 0 = no alert. */
+  minStock: integer('min_stock').notNull().default(0),
+  active: active(),
+});
+
+export const partsUsed = pgTable('parts_used', {
+  id: serial('id').primaryKey(),
+  repairActionId: integer('repair_action_id').notNull().references(() => repairActions.id),
+  partId: integer('part_id').notNull().references(() => parts.id),
+  quantity: integer('quantity').notNull(),
+});
+
+/** Every change to stock: used in a repair, received, counted. */
+export const stockMovements = pgTable(
+  'stock_movements',
+  {
+    id: serial('id').primaryKey(),
+    partId: integer('part_id').notNull().references(() => parts.id),
+    delta: integer('delta').notNull(),
+    reason: text('reason').$type<'used' | 'received' | 'count'>().notNull(),
+    ticketId: integer('ticket_id').references(() => tickets.id),
+    note: text('note').notNull().default(''),
+    userId: integer('user_id').references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index('stock_movements_part').on(t.partId)],
+);
+
+// ---------- Photos ----------
+
+export const attachments = pgTable(
+  'attachments',
+  {
+    id: serial('id').primaryKey(),
+    unitId: integer('unit_id').notNull().references(() => units.id),
+    ticketId: integer('ticket_id').references(() => tickets.id),
+    testId: integer('test_id').references(() => tests.id),
+    /** File name inside the uploads folder. */
+    storageKey: text('storage_key').notNull(),
+    mime: text('mime').notNull(),
+    size: integer('size').notNull(),
+    caption: text('caption').notNull().default(''),
+    uploadedBy: integer('uploaded_by').notNull().references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index('attachments_unit').on(t.unitId)],
+);
+
+// ---------- Screen texts edited by admins (override the built-in translations) ----------
+
+export const translations = pgTable(
+  'translations',
+  {
+    id: serial('id').primaryKey(),
+    lang: text('lang').notNull(),
+    key: text('key').notNull(),
+    value: text('value').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('translations_lang_key').on(t.lang, t.key)],
 );

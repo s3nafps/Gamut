@@ -408,8 +408,9 @@ gamut/
 
 ## 12. Build roadmap
 
-> **Status (Oct 2026):** Phase 0 and Phase 1 are built (except the pilot), plus the production
-> line dashboard and the full checklist from Phase 2. See [SETUP.md](SETUP.md) to install and run.
+> **Status (Oct 2026):** Phases 0–3 are built, plus spare-parts stock and repair tags from Phase 4.
+> Left: the factory pilot and roll-out (your side), and the optional items that need your IT / ERP
+> (company accounts, ERP link). See [SETUP.md](SETUP.md) to install and run.
 > `[x]` done · `[~]` partly done · `[ ]` to do
 
 ### Phase 0 — Setup (1 week)
@@ -436,22 +437,23 @@ gamut/
 ### Phase 2 — Line dashboard & details (2 weeks)
 - [x] **Production line dashboard** (live FPY, hourly chart, top defects, in repair)
 - [x] Full checklist with measured values (min/max)
-- [~] Spare parts used *(free text per repair today; a parts catalog comes later)*
-- [ ] Photos from test room and repair
+- [x] Spare parts used *(from a parts catalog with stock, plus free text for unlisted parts)*
+- [x] Photos from test room and repair
 - [x] Repeat-repair warning
 
 ### Phase 3 — Reports & roll-out (2 weeks)
-- [ ] All KPI reports (§8), Excel / PDF export in each language
-- [ ] Translation editor for admins
-- [ ] Targets (FPY) per model
-- [ ] Audit log viewer
-- [~] Installer + auto-update from the server; roll out to all PCs *(installer config done; the screens update from the server automatically)*
-- [ ] Short training guide in FR / AR / EN
+- [x] All KPI reports (§8), Excel / PDF export in each language
+- [x] Translation editor for admins
+- [x] Targets (FPY) per model
+- [x] Audit log viewer
+- [x] Installer + auto-update from the server *(Windows installer built automatically on GitHub; the screens update from the server)*
+- [ ] Roll out to all PCs
+- [x] Short training guide in FR / AR / EN
 
 ### Phase 4 — Later
 - [x] More appliance categories (dryer, dishwasher, fridge, AC…) — data only
-- [ ] Spare-parts stock and low-stock alerts
-- [ ] Repair tag / label printing
+- [x] Spare-parts stock and low-stock alerts
+- [x] Repair tag / label printing
 - [ ] Login with company accounts (Active Directory)
 - [ ] Link with the ERP if products get added there
 

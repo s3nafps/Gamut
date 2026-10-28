@@ -10,7 +10,8 @@
     "no": "Non",
     "nothing": "Rien pour le moment",
     "save": "Enregistrer",
-    "yes": "Oui"
+    "yes": "Oui",
+    "print": "Imprimer / PDF"
   },
   "connection": {
     "lostTitle": "Pas de connexion au serveur",
@@ -24,7 +25,11 @@
     "admin": "Paramètres",
     "myActivity": "Mon activité",
     "changeStation": "Changer le poste de ce PC",
-    "logout": "Se déconnecter"
+    "logout": "Se déconnecter",
+    "parts": "Pièces",
+    "reports": "Rapports",
+    "help": "Aide",
+    "audit": "Journal des modifications"
   },
   "setup": {
     "title": "Configurer ce PC",
@@ -167,7 +172,8 @@
     "faultFound": "Panne réelle",
     "saveDiagnosis": "Enregistrer la panne",
     "saved": "Enregistré",
-    "thisRepair": "Cette réparation"
+    "thisRepair": "Cette réparation",
+    "otherParts": "Autres pièces (hors liste)"
   },
   "timeline": {
     "by": "par {{name}}",
@@ -262,7 +268,16 @@
     "kind": {
       "ok": "OK / pas OK",
       "measure": "Valeur mesurée"
-    }
+    },
+    "modelTarget": "Objectif de rendement pour ce modèle (%) — vide = objectif général",
+    "modelTargetShort": "Objectif",
+    "parts": "Pièces de rechange",
+    "partsHelp": "Le catalogue des pièces. Les réparateurs y choisissent les pièces et le stock baisse automatiquement. Indiquez un minimum pour être alerté.",
+    "initialStock": "Stock de départ",
+    "stockFromPartsPage": "Modifiez le stock depuis la page Pièces (réception / inventaire).",
+    "texts": "Textes des écrans",
+    "textsHelp": "Modifiez n'importe quel texte des écrans. Les textes modifiés sont surlignés. Videz une case pour revenir au texte d'origine. Les changements arrivent tout de suite sur tous les PC.",
+    "textsSearch": "Rechercher un texte…"
   },
   "errors": {
     "network": "Impossible de joindre le serveur.",
@@ -289,6 +304,197 @@
     "serial_rule": {
       "invalid_regex": "Le format n'est pas valide.",
       "missing_model_group": "Le format doit contenir (?<model>…)."
+    },
+    "not_enough_stock": "Stock insuffisant pour la pièce {{part}} (en stock : {{stock}}).",
+    "photo_too_large": "Cette photo est trop grande.",
+    "wrong_pin": "Le code PIN actuel est faux.",
+    "weak_pin": "Ce code est trop facile à deviner. Choisissez-en un autre."
+  },
+  "pin": {
+    "title": "Changer mon code PIN",
+    "current": "Code PIN actuel",
+    "new": "Nouveau code PIN",
+    "again": "Confirmer le nouveau code",
+    "rules": "4 à 8 chiffres — pas 1234, 0000 ou similaire",
+    "mismatch": "Les deux nouveaux codes sont différents.",
+    "changed": "Code PIN modifié",
+    "weakTitle": "Votre code PIN est trop facile à deviner",
+    "weakText": "N'importe qui pourrait se connecter à votre place. Choisissez un nouveau code maintenant."
+  },
+  "parts": {
+    "title": "Pièces de rechange",
+    "used": "Pièces utilisées (du stock)",
+    "choose": "Choisir une pièce",
+    "inStock": "en stock : {{count}}",
+    "low": "Stock bas",
+    "addLine": "Ajouter une pièce",
+    "number": "Référence",
+    "stock": "Stock",
+    "min": "Stock minimum",
+    "lowTitle": "Pièces à commander : {{count}}",
+    "search": "Rechercher une référence ou un nom",
+    "all": "Toutes",
+    "updateStock": "Mettre à jour le stock",
+    "movements": "Historique",
+    "adminHint": "Ajoutez ou modifiez les pièces dans Paramètres → Pièces de rechange.",
+    "current": "Stock actuel : {{count}}",
+    "received": "Réception",
+    "counted": "Inventaire",
+    "receivedQty": "Quantité reçue",
+    "countedQty": "Quantité comptée en rayon",
+    "notePlaceholder": "ex. numéro du bon de livraison",
+    "reason": {
+      "used": "Utilisée en réparation",
+      "received": "Réception",
+      "count": "Inventaire"
+    }
+  },
+  "photos": {
+    "title": "Photos",
+    "add": "Ajouter des photos",
+    "none": "Aucune photo",
+    "save": "Enregistrer les photos"
+  },
+  "tag": {
+    "title": "À RÉPARER",
+    "print": "Imprimer l'étiquette"
+  },
+  "audit": {
+    "title": "Journal des modifications",
+    "text": "Tout ce qui est fait dans l'application : qui, quoi et quand. Rien ne peut être effacé de ce journal.",
+    "allTypes": "Toutes les actions",
+    "everyone": "Tout le monde",
+    "what": "Action",
+    "details": "Détails",
+    "more": "Afficher plus",
+    "action": {
+      "create": "ajouté",
+      "update": "modifié"
+    },
+    "type": {
+      "unit_created": "Nouvel appareil",
+      "test_passed": "Test conforme",
+      "test_failed": "Test non conforme",
+      "ticket_opened": "Réparation ouverte",
+      "status_changed": "Statut de réparation",
+      "assigned": "Réparation confiée",
+      "diagnosis_added": "Panne trouvée",
+      "repair_action_added": "Intervention enregistrée",
+      "retest_failed": "Refus au re-test",
+      "ticket_closed": "Réparation clôturée",
+      "scrapped": "Rebuté",
+      "photo_added": "Photo ajoutée",
+      "stock_changed": "Stock modifié",
+      "admin_change": "Paramètres : liste modifiée",
+      "settings_changed": "Paramètres généraux modifiés",
+      "translation_changed": "Texte d'écran modifié",
+      "pin_changed": "Code PIN modifié"
+    },
+    "entity": {
+      "models": "Modèle",
+      "parts": "Pièce",
+      "colors": "Couleur",
+      "serialRules": "Règle de numéro de série",
+      "defectCodes": "Code défaut",
+      "checklistItems": "Point de contrôle",
+      "components": "Organe",
+      "actionTypes": "Intervention",
+      "categories": "Type de produit",
+      "users": "Personne",
+      "stations": "Poste"
+    }
+  },
+  "reports": {
+    "title": "Rapports",
+    "excel": "Exporter vers Excel",
+    "print": "Imprimer / PDF",
+    "from": "Du",
+    "to": "Au",
+    "period": "Du {{from}} au {{to}}",
+    "range": {
+      "today": "Aujourd'hui",
+      "week": "7 jours",
+      "month": "30 jours",
+      "thisMonth": "Ce mois-ci",
+      "custom": "Choisir les dates"
+    },
+    "retestFailRate": "Refusés après réparation",
+    "avgRepair": "Temps moyen en réparation",
+    "avgHandsOn": "Temps de travail moyen par réparation",
+    "avgWaitRetest": "Attente moyenne avant re-test",
+    "byDay": "Par jour",
+    "byModel": "Par modèle",
+    "byColor": "Par couleur",
+    "defects": "Défauts (Pareto)",
+    "components": "Ce qui a été réparé",
+    "partsUsed": "Pièces utilisées",
+    "repairmen": "Réparateurs",
+    "testers": "Contrôleurs qualité",
+    "repeat": "Appareils réparés plusieurs fois",
+    "retestFails": "Refus au re-test",
+    "count": "Nombre",
+    "quantity": "Quantité",
+    "cumulative": "% cumulé",
+    "summary": "Résumé",
+    "indicator": "Indicateur",
+    "value": "Valeur",
+    "date": "Date",
+    "by": "Par"
+  },
+  "help": {
+    "title": "Aide",
+    "intro": "Les étapes de votre travail. Demandez à votre superviseur si quelque chose n'est pas clair.",
+    "rulesTitle": "Règles que l'application applique toujours",
+    "rules": {
+      "r1": "Seule la salle de test peut déclarer un appareil conforme ou non conforme.",
+      "r2": "Personne ne peut valider un appareil qu'il a réparé lui-même.",
+      "r3": "Une réparation ne retourne en salle de test qu'après au moins une intervention enregistrée.",
+      "r4": "Rien n'est jamais supprimé : chaque test et chaque réparation restent dans l'historique.",
+      "r5": "Le PC vous déconnecte après quelques minutes d'inactivité. Déconnectez-vous toujours en partant."
+    },
+    "tester": {
+      "title": "Salle de test",
+      "s1": "Connectez-vous avec votre matricule et votre code PIN.",
+      "s2": "Scannez le numéro de série. Le modèle et la couleur s'affichent seuls (ou choisissez-les).",
+      "s3": "Testez l'appareil. Marquez d'un ✗ chaque contrôle défaillant. Saisissez les valeurs mesurées.",
+      "s4": "Tout est bon : appuyez sur CONFORME.",
+      "s5": "Problème : appuyez sur NON CONFORME, choisissez le défaut, ajoutez une remarque et des photos.",
+      "s6": "Imprimez l'étiquette de réparation, collez-la sur l'appareil et envoyez-le en réparation.",
+      "s7": "Les appareils réparés apparaissent dans « Retours de réparation ». Scannez-les et testez-les à nouveau."
+    },
+    "repairman": {
+      "title": "Réparation",
+      "s1": "Connectez-vous. Les appareils refusés à nouveau sont en haut, en rouge : traitez-les d'abord.",
+      "s2": "Prenez un nouvel appareil avec « Prendre » ou scannez son numéro / son étiquette.",
+      "s3": "Lisez le constat de la salle de test (défaut, contrôles refusés, photos).",
+      "s4": "Enregistrez la panne réellement trouvée.",
+      "s5": "Enregistrez chaque intervention : organe, ce que vous avez fait, pièces du stock, temps.",
+      "s6": "Pas de pièce ? Appuyez sur « En attente de pièces », puis « Reprendre » à l'arrivée.",
+      "s7": "Terminé : appuyez sur « Renvoyer en salle de test ». Seule la salle de test peut valider l'appareil."
+    },
+    "supervisor": {
+      "title": "Superviseur",
+      "s1": "Écran Réparation : voyez toutes les réparations, confiez-en une à un autre réparateur.",
+      "s2": "Alerte rouge = appareil refusé trop de fois au re-test : vérifiez et décidez (réparer ou rebuter).",
+      "s3": "Rapports : rendement, défauts, temps de réparation, personnes. Export Excel ou impression.",
+      "s4": "Pièces : enregistrez les réceptions et inventaires ; surveillez les alertes de stock bas.",
+      "s5": "Appareils : cherchez un numéro de série pour voir l'historique complet, l'imprimer ou rebuter.",
+      "s6": "Journal des modifications (menu utilisateur) : qui a fait quoi et quand."
+    },
+    "admin": {
+      "title": "Administrateur",
+      "s1": "D'abord : changez le code PIN admin (menu utilisateur → Changer mon code PIN).",
+      "s2": "Paramètres → Personnel : ajoutez contrôleurs, réparateurs et superviseurs.",
+      "s3": "Paramètres → Modèles et Couleurs : ajoutez vos produits et leurs codes dans le numéro de série.",
+      "s4": "Paramètres → Numéro de série : définissez la règle et testez-la avec un vrai numéro.",
+      "s5": "Vérifiez codes défaut, liste de contrôle, organes, pièces et leurs traductions.",
+      "s6": "Textes des écrans : modifiez n'importe quel texte en français, arabe ou anglais."
+    },
+    "line": {
+      "title": "Écran de ligne",
+      "s1": "Le grand écran affiche les résultats du jour en direct, sans connexion.",
+      "s2": "Vert = objectif atteint, orange = un peu en dessous, rouge = sous l'objectif.",
+      "s3": "Les principaux défauts indiquent à la ligne quoi corriger en premier."
     }
   }
 }

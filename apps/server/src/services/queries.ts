@@ -66,7 +66,10 @@ export async function lineDashboard(db: Db, now = new Date()) {
   const modelIds = [...modelCounts.keys()];
   const modelRows = modelIds.length ? await db.select().from(s.models).where(inArray(s.models.id, modelIds)) : [];
   const byModel = modelRows
-    .map((m) => ({ id: m.id, code: m.code, name: m.name, ...modelCounts.get(m.id)!, fpy: firstPassYield(modelCounts.get(m.id)!.tested - modelCounts.get(m.id)!.failed, modelCounts.get(m.id)!.tested) }))
+    .map((m) => {
+      const c = modelCounts.get(m.id)!;
+      return { id: m.id, code: m.code, name: m.name, ...c, fpy: firstPassYield(c.tested - c.failed, c.tested), target: m.fpyTarget ?? cfg.fpyTarget };
+    })
     .sort((a, b) => b.tested - a.tested);
 
   const open = await db
@@ -216,7 +219,18 @@ export async function unitHistory(db: Db, rawSerial: string) {
     ? await db.select().from(s.diagnoses).where(inArray(s.diagnoses.ticketId, ticketIds)).orderBy(asc(s.diagnoses.id))
     : [];
   const events = await db.select().from(s.events).where(eq(s.events.unitId, unit.id)).orderBy(asc(s.events.id));
-  return { unit, tests, tickets, actions, diagnoses, events };
+  const actionIds = actions.map((a) => a.id);
+  const used = actionIds.length ? await db.select().from(s.partsUsed).where(inArray(s.partsUsed.repairActionId, actionIds)) : [];
+  const photos = await db.select().from(s.attachments).where(eq(s.attachments.unitId, unit.id)).orderBy(asc(s.attachments.id));
+  return {
+    unit,
+    tests,
+    tickets,
+    actions: actions.map((a) => ({ ...a, partsUsed: used.filter((u) => u.repairActionId === a.id).map((u) => ({ partId: u.partId, quantity: u.quantity })) })),
+    diagnoses,
+    events,
+    photos,
+  };
 }
 
 export async function ticketDetail(db: Db, ticketId: number) {
@@ -233,6 +247,7 @@ export async function ticketDetail(db: Db, ticketId: number) {
     events: history.events.filter((e) => e.ticketId === ticket.id),
     otherTickets: history.tickets.filter((t) => t.id !== ticket.id),
     otherActions: history.actions.filter((a) => a.ticketId !== ticket.id),
+    photos: history.photos.filter((p) => p.ticketId === ticket.id || (p.testId != null && history.tests.some((t) => t.id === p.testId && t.ticketId === ticket.id))),
   };
 }
 
@@ -272,4 +287,21 @@ export async function personActivity(db: Db, userId: number, from: Date, to: Dat
     .where(and(eq(s.repairActions.userId, userId), gte(s.repairActions.createdAt, from), lt(s.repairActions.createdAt, to)))
     .orderBy(desc(s.repairActions.id));
   return { tests, actions };
+}
+
+/** Change log: everything that happened, newest first. */
+export async function auditLog(db: Db, opts: { from: Date; to: Date; type?: string; userId?: number; beforeId?: number; limit: number }) {
+  const conds = [gte(s.events.createdAt, opts.from), lt(s.events.createdAt, opts.to)];
+  if (opts.type) conds.push(eq(s.events.type, opts.type));
+  if (opts.userId) conds.push(eq(s.events.userId, opts.userId));
+  if (opts.beforeId) conds.push(lt(s.events.id, opts.beforeId));
+  const rows = await db
+    .select({ event: s.events, serial: s.units.serial, ticketNumber: s.tickets.number })
+    .from(s.events)
+    .leftJoin(s.units, eq(s.units.id, s.events.unitId))
+    .leftJoin(s.tickets, eq(s.tickets.id, s.events.ticketId))
+    .where(and(...conds))
+    .orderBy(desc(s.events.id))
+    .limit(opts.limit);
+  return rows.map((r) => ({ ...r.event, serial: r.serial, ticketNumber: r.ticketNumber }));
 }

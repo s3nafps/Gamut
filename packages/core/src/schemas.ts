@@ -42,8 +42,45 @@ export const repairActionSchema = z.object({
   description: z.string().max(2000).optional().default(''),
   durationMin: z.number().int().min(0).max(24 * 60).nullable().optional(),
   parts: z.string().max(500).optional().default(''),
+  /** Spare parts from the catalog: stock goes down automatically. */
+  partsUsed: z
+    .array(z.object({ partId: z.number().int().positive(), quantity: z.number().int().min(1).max(100) }))
+    .max(20)
+    .optional()
+    .default([]),
   stationId: z.number().int().positive().nullable().optional(),
 });
+
+export const stockChangeSchema = z.object({
+  /** received: add to stock · count: set the counted quantity */
+  mode: z.enum(['received', 'count']),
+  quantity: z.number().int().min(0).max(1_000_000),
+  note: z.string().max(500).optional().default(''),
+});
+
+export const PHOTO_MAX_BYTES = 6 * 1024 * 1024;
+export const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+export const photoUploadSchema = z.object({
+  data: z.string().min(10), // base64, no data: prefix
+  mime: z.enum(PHOTO_TYPES),
+  caption: z.string().max(300).optional().default(''),
+  ticketId: z.number().int().positive().nullable().optional(),
+  testId: z.number().int().positive().nullable().optional(),
+});
+
+export const changePinSchema = z.object({
+  currentPin: z.string().regex(/^\d{4,8}$/),
+  newPin: z.string().regex(/^\d{4,8}$/),
+});
+
+/** PINs anyone could guess: all the same digit, or a straight run like 1234 / 4321. */
+export function isWeakPin(pin: string): boolean {
+  if (/^(\d)\1+$/.test(pin)) return true;
+  const d = pin.split('').map(Number);
+  const up = d.every((x, i) => i === 0 || x === (d[i - 1] + 1) % 10);
+  const down = d.every((x, i) => i === 0 || x === (d[i - 1] + 9) % 10);
+  return up || down;
+}
 
 export const scrapSchema = z.object({ reason: z.string().trim().min(3).max(500) });
 export const assignSchema = z.object({ userId: z.number().int().positive() });

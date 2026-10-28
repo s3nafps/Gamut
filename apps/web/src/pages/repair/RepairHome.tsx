@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { ScanInput } from '../../components/ScanInput';
 import { TicketStatusBadge } from '../../components/StatusBadge';
 import { get, post } from '../../lib/api';
-import { useNames } from '../../lib/catalog';
+import { isLowStock, useNames } from '../../lib/catalog';
 import { notifyError } from '../../lib/errors';
 import { fmtMinutes, sinceMinutes } from '../../lib/format';
 import { normalizeSerial } from '@gamut/core';
@@ -135,6 +135,14 @@ export function RepairHome() {
       {notFound && (
         <Alert color="yellow" icon={<IconAlertTriangle />} withCloseButton onClose={() => setNotFound(null)}>
           {t('repair.noOpenTicket', { serial: notFound })}
+        </Alert>
+      )}
+      {can('supervise') && (n.catalog?.parts ?? []).some(isLowStock) && (
+        <Alert color="orange" icon={<IconAlertTriangle />} title={t('parts.lowTitle', { count: (n.catalog?.parts ?? []).filter(isLowStock).length })}>
+          {(n.catalog?.parts ?? [])
+            .filter(isLowStock)
+            .map((p) => `${p.partNumber} (${p.stockQty})`)
+            .join(' · ')}
         </Alert>
       )}
       {can('supervise') && alerts.length > 0 && (

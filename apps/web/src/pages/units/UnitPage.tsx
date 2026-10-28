@@ -1,9 +1,10 @@
 import { Badge, Button, Card, Group, Modal, SimpleGrid, Stack, Text, Textarea, Title } from '@mantine/core';
-import { IconArrowLeft, IconTrash } from '@tabler/icons-react';
+import { IconArrowLeft, IconPrinter, IconTrash } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { PhotoGallery } from '../../components/Photos';
 import { TicketStatusBadge, UnitStatusBadge } from '../../components/StatusBadge';
 import { UnitTimeline } from '../../components/UnitTimeline';
 import { get, post } from '../../lib/api';
@@ -39,9 +40,12 @@ export function UnitPage() {
 
   return (
     <Stack gap="md">
-      <Group>
+      <Group justify="space-between" className="no-print">
         <Button variant="subtle" leftSection={<IconArrowLeft className="flip-rtl" />} onClick={() => navigate(-1)}>
           {t('common.back')}
+        </Button>
+        <Button variant="light" leftSection={<IconPrinter size={18} />} onClick={() => window.print()}>
+          {t('common.print')}
         </Button>
       </Group>
       <Card withBorder padding="lg">
@@ -71,7 +75,7 @@ export function UnitPage() {
           <Info label={t('units.repairTime')} value={t('time.minutes', { count: repairMinutes })} />
         </SimpleGrid>
         {can('supervise') && unit.status !== 'scrapped' && (
-          <Button mt="md" color="dark" variant="outline" leftSection={<IconTrash />} onClick={() => setScrapOpen(true)}>
+          <Button mt="md" color="dark" variant="outline" leftSection={<IconTrash />} onClick={() => setScrapOpen(true)} className="no-print">
             {t('repair.scrap')}
           </Button>
         )}
@@ -98,6 +102,15 @@ export function UnitPage() {
               </Group>
             ))}
           </Stack>
+        </Card>
+      )}
+
+      {data.photos.length > 0 && (
+        <Card withBorder padding="md">
+          <Title order={4} mb="sm">
+            {t('photos.title')}
+          </Title>
+          <PhotoGallery photos={data.photos} />
         </Card>
       )}
 

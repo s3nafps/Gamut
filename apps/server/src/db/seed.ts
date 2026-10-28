@@ -150,11 +150,21 @@ export async function seedIfEmpty(db: Db, opts: { demo: boolean }): Promise<bool
       pattern: '^(?<model>WM[0-9][A-Z])(?<color>[A-Z])(?<year>\\d{2})(?<month>\\d{2})\\d{6}$',
       example: 'WM8FW2610000123',
     });
+    const comps = await tx.select().from(s.components);
+    const comp = (en: string) => comps.find((c) => c.name.en === en)?.id ?? null;
+    await tx.insert(s.parts).values([
+      { partNumber: '41000101', name: n('Door seal 8 kg', 'Joint de hublot 8 kg', 'حشية الباب 8 كغ'), categoryId: wm.id, componentId: comp('Door seal'), stockQty: 12, minStock: 5 },
+      { partNumber: '41000202', name: n('Drain pump 30 W', 'Pompe de vidange 30 W', 'مضخة تصريف 30 واط'), categoryId: wm.id, componentId: comp('Drain pump'), stockQty: 4, minStock: 5 },
+      { partNumber: '41000303', name: n('Door lock', 'Serrure de porte', 'قفل الباب'), categoryId: wm.id, componentId: comp('Door lock'), stockQty: 20, minStock: 6 },
+      { partNumber: '41000404', name: n('Drive belt 1270 J5', 'Courroie 1270 J5', 'سير 1270 J5'), categoryId: wm.id, componentId: comp('Drive belt'), stockQty: 15, minStock: 4 },
+      { partNumber: '41000505', name: n('Heater 2000 W', 'Résistance 2000 W', 'سخان 2000 واط'), categoryId: wm.id, componentId: comp('Heater'), stockQty: 8, minStock: 3 },
+      { partNumber: '41000606', name: n('Bearing kit 6204/6205', 'Kit roulements 6204/6205', 'طقم رولمان 6204/6205'), categoryId: wm.id, componentId: comp('Bearings & seal'), stockQty: 6, minStock: 2 },
+    ]);
     await tx.insert(s.users).values([
-      { employeeId: 'T001', fullName: 'Tester 1', roles: ['tester'], language: 'fr', pinHash: hashPin('1111') },
-      { employeeId: 'R001', fullName: 'Repairman 1', roles: ['repairman'], language: 'ar', pinHash: hashPin('2222') },
-      { employeeId: 'R002', fullName: 'Repairman 2', roles: ['repairman'], language: 'fr', pinHash: hashPin('3333') },
-      { employeeId: 'S001', fullName: 'Supervisor 1', roles: ['supervisor'], language: 'en', pinHash: hashPin('4444') },
+      { employeeId: 'T001', fullName: 'Tester 1', roles: ['tester'], language: 'fr', pinHash: hashPin('1357') },
+      { employeeId: 'R001', fullName: 'Repairman 1', roles: ['repairman'], language: 'ar', pinHash: hashPin('2468') },
+      { employeeId: 'R002', fullName: 'Repairman 2', roles: ['repairman'], language: 'fr', pinHash: hashPin('3579') },
+      { employeeId: 'S001', fullName: 'Supervisor 1', roles: ['supervisor'], language: 'en', pinHash: hashPin('4680') },
     ]);
   });
   return true;

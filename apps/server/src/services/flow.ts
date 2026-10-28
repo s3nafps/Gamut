@@ -336,13 +336,32 @@ export async function addDiagnosis(db: Db, ticketId: number, input: { defectCode
 export async function addRepairAction(
   db: Db,
   ticketId: number,
-  input: { componentId: number; actionTypeId: number; description: string; parts: string; durationMin?: number | null; stationId?: number | null },
+  input: {
+    componentId: number;
+    actionTypeId: number;
+    description: string;
+    parts: string;
+    durationMin?: number | null;
+    stationId?: number | null;
+    partsUsed?: Array<{ partId: number; quantity: number }>;
+  },
   actor: Actor,
 ) {
   return db.transaction(async (tx) => {
     const t = await lockTicket(tx, ticketId);
     assertWorkable(t);
     assertAssigneeOrSupervisor(t, actor);
+    // Merge duplicate lines, then check stock before writing anything.
+    const wanted = new Map<number, number>();
+    for (const p of input.partsUsed ?? []) wanted.set(p.partId, (wanted.get(p.partId) ?? 0) + p.quantity);
+    const partRows = wanted.size
+      ? await tx.select().from(s.parts).where(inArray(s.parts.id, [...wanted.keys()])).for('update')
+      : [];
+    for (const [partId, qty] of wanted) {
+      const part = partRows.find((p) => p.id === partId);
+      if (!part || !part.active) throw new AppError('not_found', 404, { partId });
+      if (part.stockQty < qty) throw new AppError('not_enough_stock', 409, { part: part.partNumber, stock: part.stockQty });
+    }
     const [a] = await tx
       .insert(s.repairActions)
       .values({
@@ -356,8 +375,13 @@ export async function addRepairAction(
         durationMin: input.durationMin ?? null,
       })
       .returning();
+    for (const [partId, qty] of wanted) {
+      await tx.insert(s.partsUsed).values({ repairActionId: a.id, partId, quantity: qty });
+      await tx.update(s.parts).set({ stockQty: sql`${s.parts.stockQty} - ${qty}` }).where(eq(s.parts.id, partId));
+      await tx.insert(s.stockMovements).values({ partId, delta: -qty, reason: 'used', ticketId, userId: actor.id });
+    }
     await logEvent(tx, { unitId: t.unitId, ticketId, type: 'repair_action_added', userId: actor.id, data: { actionId: a.id } });
-    return a;
+    return { ...a, partsUsed: [...wanted].map(([partId, quantity]) => ({ partId, quantity })) };
   });
 }
 
@@ -396,5 +420,23 @@ export async function scrapUnit(db: Db, unitId: number, reason: string, actor: A
     await tx.update(s.units).set({ status: 'scrapped', releasedAt: null }).where(eq(s.units.id, unitId));
     await logEvent(tx, { unitId, ticketId: t?.id ?? null, type: 'scrapped', from: u.status, to: 'scrapped', userId: actor.id, data: { reason } });
     return { ok: true };
+  });
+}
+
+// ---------- Spare parts stock ----------
+
+export async function changeStock(db: Db, partId: number, input: { mode: 'received' | 'count'; quantity: number; note: string }, actor: Actor) {
+  return db.transaction(async (tx) => {
+    const [part] = await tx.select().from(s.parts).where(eq(s.parts.id, partId)).for('update');
+    if (!part) throw new AppError('not_found', 404);
+    const delta = input.mode === 'received' ? input.quantity : input.quantity - part.stockQty;
+    const [updated] = await tx
+      .update(s.parts)
+      .set({ stockQty: part.stockQty + delta })
+      .where(eq(s.parts.id, partId))
+      .returning();
+    await tx.insert(s.stockMovements).values({ partId, delta, reason: input.mode, note: input.note, userId: actor.id });
+    await logEvent(tx, { type: 'stock_changed', userId: actor.id, data: { partId, partNumber: part.partNumber, mode: input.mode, delta, stock: updated.stockQty, note: input.note } });
+    return updated;
   });
 }

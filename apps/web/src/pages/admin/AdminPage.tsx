@@ -25,11 +25,12 @@ import { IconPencil, IconPlus } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BUILT_IN, loadTextOverrides } from '../../i18n';
 import { get, post, put } from '../../lib/api';
 import { useNames } from '../../lib/catalog';
 import { notifyError, notifyOk } from '../../lib/errors';
 
-type FieldType = 'text' | 'code' | 'localized' | 'number' | 'category' | 'kind' | 'stationType' | 'language' | 'roles' | 'boolean' | 'pin' | 'pattern';
+type FieldType = 'text' | 'code' | 'localized' | 'number' | 'category' | 'component' | 'kind' | 'stationType' | 'language' | 'roles' | 'boolean' | 'pin' | 'pattern';
 type Field = { key: string; type: FieldType; label: string; required?: boolean };
 type EntityDef = { name: string; label: string; fields: Field[]; columns: Array<(row: any) => React.ReactNode>; headers: string[]; help?: string };
 
@@ -45,9 +46,39 @@ function useEntityDefs(): EntityDef[] {
       name: 'models',
       label: t('admin.models'),
       help: t('admin.modelsHelp'),
-      fields: [cat, { key: 'code', type: 'code', label: t('fields.serialCode'), required: true }, { key: 'name', type: 'text', label: t('fields.name'), required: true }, { key: 'brand', type: 'text', label: t('fields.brand') }, active],
-      headers: [t('fields.serialCode'), t('fields.name'), t('fields.brand'), t('fields.category'), t('fields.active')],
-      columns: [(r) => <Code>{r.code}</Code>, (r) => r.name, (r) => r.brand, (r) => n.category(r.categoryId), activeCol],
+      fields: [
+        cat,
+        { key: 'code', type: 'code', label: t('fields.serialCode'), required: true },
+        { key: 'name', type: 'text', label: t('fields.name'), required: true },
+        { key: 'brand', type: 'text', label: t('fields.brand') },
+        { key: 'fpyTarget', type: 'number', label: t('admin.modelTarget') },
+        active,
+      ],
+      headers: [t('fields.serialCode'), t('fields.name'), t('fields.brand'), t('fields.category'), t('admin.modelTargetShort'), t('fields.active')],
+      columns: [(r) => <Code>{r.code}</Code>, (r) => r.name, (r) => r.brand, (r) => n.category(r.categoryId), (r) => (r.fpyTarget != null ? `${r.fpyTarget}%` : '—'), activeCol],
+    },
+    {
+      name: 'parts',
+      label: t('admin.parts'),
+      help: t('admin.partsHelp'),
+      fields: [
+        { key: 'partNumber', type: 'text', label: t('parts.number'), required: true },
+        { key: 'name', type: 'localized', label: t('fields.name'), required: true },
+        { key: 'categoryId', type: 'category', label: t('fields.category') },
+        { key: 'componentId', type: 'component', label: t('fields.component') },
+        { key: 'stockQty', type: 'number', label: t('admin.initialStock') },
+        { key: 'minStock', type: 'number', label: t('parts.min') },
+        active,
+      ],
+      headers: [t('parts.number'), t('fields.name'), t('fields.component'), t('parts.stock'), t('parts.min'), t('fields.active')],
+      columns: [
+        (r) => <Code>{r.partNumber}</Code>,
+        (r) => L(r.name),
+        (r) => (r.componentId ? n.component(r.componentId) : ''),
+        (r) => r.stockQty,
+        (r) => r.minStock,
+        activeCol,
+      ],
     },
     {
       name: 'colors',
@@ -217,7 +248,9 @@ function EntityForm({ def, initial, onClose }: { def: EntityDef; initial: any | 
         if (f.type === 'pin' && !values.pin) continue;
         body[f.key] = values[f.key];
         if (f.type === 'number' && (values[f.key] === '' || values[f.key] === undefined)) body[f.key] = null;
-        if (f.type === 'number' && ['priority', 'sort'].includes(f.key) && body[f.key] === null) body[f.key] = 0;
+        if (f.type === 'number' && ['priority', 'sort', 'stockQty', 'minStock'].includes(f.key) && body[f.key] === null) body[f.key] = 0;
+        // Stock is changed from the Spare parts page (received / counted), never by editing the part.
+        if (initial && f.key === 'stockQty') delete body[f.key];
       }
       return initial ? put(`/api/admin/${def.name}/${initial.id}`, body) : post(`/api/admin/${def.name}`, body);
     },
@@ -249,16 +282,39 @@ function EntityForm({ def, initial, onClose }: { def: EntityDef; initial: any | 
           case 'boolean':
             return <Switch key={f.key} size="md" label={f.label} checked={!!values[f.key]} onChange={(e) => set(f.key, e.currentTarget.checked)} />;
           case 'number':
-            return <NumberInput key={f.key} label={f.label} value={values[f.key] ?? ''} onChange={(v) => set(f.key, typeof v === 'number' ? v : null)} decimalScale={3} />;
+            return (
+              <NumberInput
+                key={f.key}
+                label={f.label}
+                value={values[f.key] ?? ''}
+                onChange={(v) => set(f.key, typeof v === 'number' ? v : null)}
+                decimalScale={3}
+                disabled={!!initial && f.key === 'stockQty'}
+                description={initial && f.key === 'stockQty' ? t('admin.stockFromPartsPage') : undefined}
+              />
+            );
           case 'category':
             return (
               <Select
                 key={f.key}
                 label={f.label}
                 required={f.required}
+                clearable={!f.required}
                 value={values[f.key] ? String(values[f.key]) : null}
                 onChange={(v) => set(f.key, v ? Number(v) : null)}
                 data={(n.catalog?.categories ?? []).map((c) => ({ value: String(c.id), label: tr(c.name, n.lang) }))}
+              />
+            );
+          case 'component':
+            return (
+              <Select
+                key={f.key}
+                label={f.label}
+                clearable
+                searchable
+                value={values[f.key] ? String(values[f.key]) : null}
+                onChange={(v) => set(f.key, v ? Number(v) : null)}
+                data={(n.catalog?.components ?? []).map((c) => ({ value: String(c.id), label: `${tr(c.name, n.lang)} · ${n.category(c.categoryId)}` }))}
               />
             );
           case 'kind':
@@ -435,6 +491,7 @@ export function AdminPage() {
               {d.label}
             </Tabs.Tab>
           ))}
+          <Tabs.Tab value="texts">{t('admin.texts')}</Tabs.Tab>
           <Tabs.Tab value="settings">{t('admin.settings')}</Tabs.Tab>
         </Tabs.List>
         {defs.map((d) => (
@@ -442,10 +499,96 @@ export function AdminPage() {
             <EntityTab def={d} />
           </Tabs.Panel>
         ))}
+        <Tabs.Panel value="texts" pt="md">
+          <TextsEditor />
+        </Tabs.Panel>
         <Tabs.Panel value="settings" pt="md">
           <SettingsTab />
         </Tabs.Panel>
       </Tabs>
+    </Stack>
+  );
+}
+
+const flatten = (o: Record<string, unknown>, p = ''): Array<[string, string]> =>
+  Object.entries(o).flatMap(([k, v]) => (v && typeof v === 'object' ? flatten(v as Record<string, unknown>, `${p}${k}.`) : [[`${p}${k}`, String(v)] as [string, string]]));
+
+/** Change any wording on the screens, in each language. Empty = back to the original text. */
+function TextsEditor() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [q, setQ] = useState('');
+  const [limit, setLimit] = useState(40);
+  const { data: overrides } = useQuery({
+    queryKey: ['text-overrides'],
+    queryFn: async () => (await fetch('/api/public/translations')).json() as Promise<Record<string, Record<string, string>>>,
+  });
+  const builtIn = Object.fromEntries((['fr', 'ar', 'en'] as const).map((l) => [l, Object.fromEntries(flatten(BUILT_IN[l]))]));
+  const keys = Object.keys(builtIn.en);
+  const term = q.trim().toLowerCase();
+  const shown = keys.filter(
+    (k) => !term || k.toLowerCase().includes(term) || (['fr', 'ar', 'en'] as const).some((l) => (overrides?.[l]?.[k] ?? builtIn[l][k] ?? '').toLowerCase().includes(term)),
+  );
+
+  const save = async (lang: string, key: string, value: string) => {
+    const current = overrides?.[lang]?.[key] ?? builtIn[lang][key];
+    if (value === current) return;
+    try {
+      // Saving the original text again = remove the change.
+      await put('/api/admin/translations', { lang, key, value: value === builtIn[lang][key] ? '' : value });
+      await qc.invalidateQueries({ queryKey: ['text-overrides'] });
+      await loadTextOverrides();
+      notifyOk(t('repair.saved'));
+    } catch (e) {
+      notifyError(e, t);
+    }
+  };
+
+  return (
+    <Stack gap="sm">
+      <Text c="dimmed">{t('admin.textsHelp')}</Text>
+      <TextInput placeholder={t('admin.textsSearch')} value={q} onChange={(e) => setQ(e.currentTarget.value)} />
+      <Card withBorder padding={0}>
+        <Table verticalSpacing={4}>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th w={220}>{t('fields.code')}</Table.Th>
+              <Table.Th>Français</Table.Th>
+              <Table.Th>العربية</Table.Th>
+              <Table.Th>English</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {shown.slice(0, limit).map((k) => (
+              <Table.Tr key={k}>
+                <Table.Td>
+                  <Code style={{ fontSize: 11 }}>{k}</Code>
+                </Table.Td>
+                {(['fr', 'ar', 'en'] as const).map((l) => {
+                  const changed = overrides?.[l]?.[k] != null;
+                  return (
+                    <Table.Td key={l}>
+                      <TextInput
+                        key={`${k}-${l}-${overrides?.[l]?.[k] ?? ''}`}
+                        size="xs"
+                        dir={l === 'ar' ? 'rtl' : 'ltr'}
+                        defaultValue={overrides?.[l]?.[k] ?? builtIn[l][k] ?? ''}
+                        onBlur={(e) => save(l, k, e.currentTarget.value.trim() === '' ? builtIn[l][k] : e.currentTarget.value)}
+                        styles={changed ? { input: { borderColor: 'var(--mantine-color-grape-6)', background: 'var(--mantine-color-grape-0)' } } : undefined}
+                      />
+                    </Table.Td>
+                  );
+                })}
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Card>
+      {shown.length > limit && (
+        <Button variant="light" onClick={() => setLimit(limit + 60)} style={{ alignSelf: 'center' }}>
+          {t('audit.more')} ({shown.length - limit})
+        </Button>
+      )}
     </Stack>
   );
 }

@@ -17,9 +17,11 @@ import { createRoot } from 'react-dom/client';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
-import i18n, { applyDocumentLanguage } from './i18n';
+import i18n, { applyDocumentLanguage, loadTextOverrides } from './i18n';
 import { SessionProvider } from './lib/session';
 import { theme } from './theme';
+
+loadTextOverrides();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },

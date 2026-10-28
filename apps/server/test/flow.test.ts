@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app';
@@ -32,12 +35,12 @@ beforeAll(async () => {
   // TEST_DATABASE_URL = run against a real (empty) PostgreSQL; otherwise in-memory embedded PostgreSQL.
   handle = await openDb({ url: process.env.TEST_DATABASE_URL });
   await seedIfEmpty(handle.db, { demo: true });
-  app = await buildApp({ db: handle.db });
+  app = await buildApp({ db: handle.db, uploadDir: mkdtempSync(join(tmpdir(), 'gamut-photos-')) });
   await login('admin', '1234');
-  await login('T001', '1111');
-  await login('R001', '2222');
-  await login('R002', '3333');
-  await login('S001', '4444');
+  await login('T001', '1357');
+  await login('R001', '2468');
+  await login('R002', '3579');
+  await login('S001', '4680');
   catalog = (await call('admin', 'GET', '/api/catalog')).body;
 });
 
@@ -48,7 +51,7 @@ afterAll(async () => {
 
 describe('login', () => {
   it('rejects a wrong PIN and unauthenticated calls', async () => {
-    expect((await call(null, 'POST', '/api/login', { employeeId: 'T001', pin: '9999' })).status).toBe(401);
+    expect((await call(null, 'POST', '/api/login', { employeeId: 'T001', pin: '9998' })).status).toBe(401);
     expect((await call(null, 'GET', '/api/catalog')).status).toBe(401);
   });
   it('keeps roles apart', async () => {
@@ -283,8 +286,106 @@ describe('several PCs at once', () => {
 describe('login protection', () => {
   it('locks an employee ID after 5 wrong PINs', async () => {
     for (let i = 0; i < 5; i++) expect((await call(null, 'POST', '/api/login', { employeeId: 'R002', pin: '0000' })).status).toBe(401);
-    const r = await call(null, 'POST', '/api/login', { employeeId: 'R002', pin: '3333' });
+    const r = await call(null, 'POST', '/api/login', { employeeId: 'R002', pin: '3579' });
     expect(r.status).toBe(429);
     expect(r.body.error).toBe('too_many_attempts');
+  });
+});
+
+describe('spare parts', () => {
+  it('takes parts out of stock when a repair uses them, and refuses when stock is short', async () => {
+    const seal = catalog.parts.find((p: any) => p.partNumber === '41000101');
+    const serial = 'WM8FW2610000900';
+    const fail = await call('T001', 'POST', '/api/tests', { serial, result: 'fail', defectCodeId: defect('WM-LK01') });
+    const id = fail.body.ticket.id;
+    await call('R001', 'POST', `/api/tickets/${id}/claim`);
+    const base = { componentId: catalog.components[1].id, actionTypeId: catalog.actionTypes[0].id };
+    const tooMany = await call('R001', 'POST', `/api/tickets/${id}/actions`, { ...base, partsUsed: [{ partId: seal.id, quantity: 99 }] });
+    expect(tooMany.body.error).toBe('not_enough_stock');
+    const ok = await call('R001', 'POST', `/api/tickets/${id}/actions`, { ...base, partsUsed: [{ partId: seal.id, quantity: 1 }, { partId: seal.id, quantity: 1 }] });
+    expect(ok.status).toBe(200);
+    const cat = (await call('admin', 'GET', '/api/catalog')).body;
+    expect(cat.parts.find((p: any) => p.id === seal.id).stockQty).toBe(seal.stockQty - 2);
+    const h = await call('S001', 'GET', `/api/units/${serial}/history`);
+    expect(h.body.actions[0].partsUsed).toEqual([{ partId: seal.id, quantity: 2 }]);
+  });
+
+  it('records received and counted stock, and only via those actions', async () => {
+    const pump = catalog.parts.find((p: any) => p.partNumber === '41000202');
+    expect((await call('R001', 'POST', `/api/parts/${pump.id}/stock`, { mode: 'received', quantity: 10 })).status).toBe(403);
+    expect((await call('S001', 'POST', `/api/parts/${pump.id}/stock`, { mode: 'received', quantity: 10, note: 'delivery 42' })).body.stockQty).toBe(14);
+    expect((await call('S001', 'POST', `/api/parts/${pump.id}/stock`, { mode: 'count', quantity: 11 })).body.stockQty).toBe(11);
+    // Editing the part cannot change stock directly
+    expect((await call('admin', 'PUT', `/api/admin/parts/${pump.id}`, { stockQty: 999, minStock: 3 })).body.stockQty).toBe(11);
+    const moves = await call('S001', 'GET', `/api/parts/${pump.id}/movements`);
+    expect(moves.body.map((m: any) => m.delta)).toEqual([10, -3]);
+  });
+});
+
+describe('photos', () => {
+  const png = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex').toString('base64');
+  it('stores a photo on a unit and serves it back', async () => {
+    const h = await call('S001', 'GET', '/api/units/WM8FW2610000900/history');
+    const up = await call('T001', 'POST', `/api/units/${h.body.unit.id}/photos`, { data: png, mime: 'image/png', caption: 'leak', ticketId: h.body.tickets[0].id });
+    expect(up.status).toBe(200);
+    const res = await app.inject({ method: 'GET', url: `/api/photos/${up.body.id}`, headers: { authorization: `Bearer ${tokens.R001}` } });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toBe('image/png');
+    expect(res.rawPayload.toString('base64')).toBe(png);
+    const t = await call('R001', 'GET', `/api/tickets/${h.body.tickets[0].id}`);
+    expect(t.body.photos).toHaveLength(1);
+    expect((await app.inject({ method: 'GET', url: `/api/photos/${up.body.id}` })).statusCode).toBe(401);
+  });
+  it('rejects a photo linked to another unit', async () => {
+    const h = await call('S001', 'GET', '/api/units/WM8FW2610000900/history');
+    const other = await call('S001', 'GET', '/api/units/WM8FW2610000001/history');
+    const r = await call('T001', 'POST', `/api/units/${other.body.unit.id}/photos`, { data: png, mime: 'image/png', ticketId: h.body.tickets[0].id });
+    expect(r.body.error).toBe('invalid_input');
+  });
+});
+
+describe('reports, change log, texts, PIN', () => {
+  it('builds the report for a date range', async () => {
+    const r = await call('S001', 'GET', '/api/reports?from=2000-01-01&to=2100-01-01');
+    expect(r.status).toBe(200);
+    expect(r.body.summary.tested).toBeGreaterThan(5);
+    expect(r.body.summary.repaired).toBeGreaterThanOrEqual(2);
+    expect(r.body.defects[0].count).toBeGreaterThan(0);
+    expect(r.body.defects.at(-1).cumulativePct).toBe(100);
+    expect(r.body.repairmen.find((x: any) => x.retestFails > 0)).toBeTruthy();
+    expect(r.body.partsUsed[0].quantity).toBe(2);
+    expect(r.body.scrapped).toHaveLength(1);
+    expect(r.body.byDay).toHaveLength(1);
+    expect((await call('T001', 'GET', '/api/reports?from=2000-01-01&to=2100-01-01')).status).toBe(403);
+  });
+
+  it('keeps a change log of admin edits', async () => {
+    const log = await call('S001', 'GET', '/api/audit?from=2000-01-01&to=2100-01-01&type=admin_change');
+    const edit = log.body.find((e: any) => e.data.entity === 'parts' && e.data.action === 'update');
+    expect(edit.data.after).toEqual({ minStock: 3 });
+    expect(JSON.stringify(log.body)).not.toContain('scrypt$');
+  });
+
+  it('lets admins override screen texts', async () => {
+    expect((await call('admin', 'PUT', '/api/admin/translations', { lang: 'fr', key: 'quality.pass', value: 'BON' })).status).toBe(200);
+    expect((await call(null, 'GET', '/api/public/translations')).body.fr['quality.pass']).toBe('BON');
+    await call('admin', 'PUT', '/api/admin/translations', { lang: 'fr', key: 'quality.pass', value: '' });
+    expect((await call(null, 'GET', '/api/public/translations')).body.fr['quality.pass']).toBeUndefined();
+  });
+
+  it('flags weak PINs and lets people change their own PIN', async () => {
+    expect((await call(null, 'POST', '/api/login', { employeeId: 'admin', pin: '1234' })).body.weakPin).toBe(true);
+    expect((await call('admin', 'PUT', '/api/me/pin', { currentPin: '9999', newPin: '8302' })).body.error).toBe('wrong_pin');
+    expect((await call('admin', 'PUT', '/api/me/pin', { currentPin: '1234', newPin: '1111' })).body.error).toBe('weak_pin');
+    expect((await call('admin', 'PUT', '/api/me/pin', { currentPin: '1234', newPin: '8302' })).status).toBe(200);
+    const again = await call(null, 'POST', '/api/login', { employeeId: 'admin', pin: '8302' });
+    expect(again.body.weakPin).toBe(false);
+  });
+
+  it('uses the per-model target on the dashboard', async () => {
+    const wm8f = catalog.models.find((m: any) => m.code === 'WM8F');
+    await call('admin', 'PUT', `/api/admin/models/${wm8f.id}`, { fpyTarget: 98 });
+    const d = await call(null, 'GET', '/api/public/dashboard');
+    expect(d.body.byModel.find((m: any) => m.code === 'WM8F').target).toBe(98);
   });
 });

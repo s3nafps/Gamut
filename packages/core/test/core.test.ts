@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isWeakPin,
   can,
   canTransition,
   decodeSerial,
@@ -105,5 +106,12 @@ describe('names and KPIs', () => {
     expect(yieldLevel(91, 95)).toBe('warning');
     expect(yieldLevel(80, 95)).toBe('bad');
     expect(yieldLevel(null, 95)).toBe('none');
+  });
+});
+
+describe('PINs', () => {
+  it('spots guessable PINs', () => {
+    for (const p of ['1234', '0000', '1111', '4321', '123456', '7890', '98765']) expect(isWeakPin(p)).toBe(true);
+    for (const p of ['1357', '2468', '8302', '193746']) expect(isWeakPin(p)).toBe(false);
   });
 });
